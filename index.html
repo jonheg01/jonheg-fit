@@ -197,6 +197,27 @@ code{background:var(--bg4);border:1px solid var(--border2);border-radius:4px;pad
     <div class="hero-sub" id="dash-date"></div>
   </div>
   <div id="day-notice"></div>
+  <div id="eating-window-card" class="eating-window" style="display:none">
+    <div>
+      <div class="ew-label">Today's eating window opens</div>
+      <div class="ew-time" id="ew-time">--:-- --</div>
+      <div class="ew-sub" id="ew-sub">Based on your last logged meal</div>
+    </div>
+    <div style="text-align:right">
+      <div class="ew-label">Fasting until</div>
+      <div style="font-size:18px;font-weight:300;color:var(--text2);font-family:var(--mono)" id="ew-fast-hrs">-- hrs</div>
+      <div class="ew-sub" id="ew-last">Last meal logged: --</div>
+    </div>
+  </div>
+  <div class="today-section" id="today-plan-section">
+    <div class="today-section-lbl">Today's meal plan</div>
+    <div id="today-meals-content"></div>
+  </div>
+  <div class="today-section" id="today-workout-section">
+    <div class="today-section-lbl">Today's workout</div>
+    <div id="today-workout-content"></div>
+  </div>
+
   <div class="g4">
     <div class="stat hi"><div class="stat-lbl">Current weight</div><div class="stat-val" id="sw">--</div><div class="stat-sub">lb - started 220</div></div>
     <div class="stat"><div class="stat-lbl">Lost so far</div><div class="stat-val" id="sl">--</div><div class="stat-sub">lb - goal 45 lb</div></div>
@@ -447,6 +468,158 @@ code{background:var(--bg4);border:1px solid var(--border2);border-radius:4px;pad
     <div class="prow"><div class="picon" style="background:var(--abg);color:var(--amber)">F</div><div><div class="pt">Fats and cooking</div><div class="ps">1 gallon non-homogenized whole milk, 1 lb grass-fed butter (Kerrygold), beef tallow jar, extra virgin olive oil (cold use only), walnuts or macadamia nuts</div></div></div>
     <div class="prow"><div class="picon" style="background:var(--pbg);color:var(--purple)">S</div><div><div class="pt">Supplements</div><div class="ps">Creatine monohydrate 500g, Magnesium glycinate 400mg, Vitamin D3 + K2 combo, Electrolyte powder no sugar, Omega-3 fish oil</div></div></div>
   </div></div>
+</div>
+
+
+<!-- BODY MEASUREMENTS -->
+<div id="page-body" class="page">
+  <div class="hero">
+    <div class="hero-ey">Track your composition</div>
+    <div class="hero-title">Body measurements</div>
+    <div class="hero-sub">Log body fat, waist, chest, arms, thighs -- see trends over time</div>
+  </div>
+  <div class="g4" id="body-stats">
+    <div class="stat"><div class="stat-lbl">Body fat %</div><div class="stat-val" id="bs-bf">--</div><div class="stat-sub">last logged</div></div>
+    <div class="stat"><div class="stat-lbl">Waist</div><div class="stat-val" id="bs-waist">--</div><div class="stat-sub">inches</div></div>
+    <div class="stat"><div class="stat-lbl">Chest</div><div class="stat-val" id="bs-chest">--</div><div class="stat-sub">inches</div></div>
+    <div class="stat"><div class="stat-lbl">Arms</div><div class="stat-val" id="bs-arms">--</div><div class="stat-sub">inches (flexed)</div></div>
+  </div>
+  <div class="g2">
+    <div class="card">
+      <div class="card-ey">Log measurements</div>
+      <div class="form-group"><label class="form-label">Date</label><input type="date" id="bm-date"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem">
+        <div><label class="form-label" style="font-size:12px">Body fat %</label><input type="number" id="bm-bf" placeholder="18.5" step="0.1" min="3" max="50"></div>
+        <div><label class="form-label" style="font-size:12px">Weight (lb)</label><input type="number" id="bm-wt" placeholder="220" step="0.1"></div>
+        <div><label class="form-label" style="font-size:12px">Waist (in)</label><input type="number" id="bm-waist" placeholder="38" step="0.25"></div>
+        <div><label class="form-label" style="font-size:12px">Chest (in)</label><input type="number" id="bm-chest" placeholder="44" step="0.25"></div>
+        <div><label class="form-label" style="font-size:12px">Arms (in)</label><input type="number" id="bm-arms" placeholder="16" step="0.25"></div>
+        <div><label class="form-label" style="font-size:12px">Thighs (in)</label><input type="number" id="bm-thighs" placeholder="24" step="0.25"></div>
+      </div>
+      <button class="save-btn" onclick="saveBodyMeasurement()">Save measurements</button>
+    </div>
+    <div class="card">
+      <div class="card-ey">Measurement history</div>
+      <div id="body-history"><div style="font-size:13px;color:var(--text3)">No measurements logged yet.</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-ey">Supplement tracker</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:1rem">Log daily supplement compliance. Tap each one you took today.</div>
+    <div id="supp-list"></div>
+    <button class="save-btn" style="margin-top:.75rem" onclick="saveSupplements()">Save today's supplements</button>
+  </div>
+  <div class="card">
+    <div class="card-ey">Progress notes</div>
+    <div class="form-group"><label class="form-label">Log a progress observation</label><textarea id="prog-note" rows="2" placeholder="e.g. Pants fitting looser, looking leaner in mirror, hit a new PR..."></textarea></div>
+    <button class="save-btn" onclick="saveProgressNote()">Save note</button>
+    <div id="prog-history" style="margin-top:1rem"></div>
+  </div>
+</div>
+
+<!-- LIFTS -->
+<div id="page-lifts" class="page">
+  <div class="hero">
+    <div class="hero-ey">Progressive overload tracker</div>
+    <div class="hero-title">Lift tracking</div>
+    <div class="hero-sub">Log your sets and reps -- track progression and spot plateaus</div>
+  </div>
+  <div class="card">
+    <div class="card-ey">Log a lift</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem">
+      <div><label class="form-label" style="font-size:12px">Exercise</label>
+        <select id="lift-name">
+          <option value="">Select or type below...</option>
+          <option>Bench press</option><option>Incline dumbbell press</option><option>Overhead press</option>
+          <option>Deadlift</option><option>Trap bar deadlift</option><option>Romanian deadlift</option>
+          <option>Barbell row</option><option>Pull-ups</option><option>Squat</option>
+          <option>Leg press</option><option>Barbell curl</option><option>Hammer curl</option>
+          <option>Skull crushers</option><option>Tricep dips</option><option>Farmer carries</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div><label class="form-label" style="font-size:12px">Custom name</label><input type="text" id="lift-custom" placeholder="if not in list above"></div>
+      <div><label class="form-label" style="font-size:12px">Weight (lb)</label><input type="number" id="lift-weight" placeholder="185" step="2.5"></div>
+      <div><label class="form-label" style="font-size:12px">Sets</label><input type="number" id="lift-sets" placeholder="3" min="1" max="20"></div>
+      <div><label class="form-label" style="font-size:12px">Reps</label><input type="number" id="lift-reps" placeholder="6" min="1" max="100"></div>
+      <div><label class="form-label" style="font-size:12px">Date</label><input type="date" id="lift-date"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes <span class="fhint">optional</span></label><input type="text" id="lift-notes" placeholder="e.g. felt strong, paused reps, PR attempt..."></div>
+    <button class="save-btn" onclick="saveLift()">Save lift</button>
+  </div>
+  <div class="card">
+    <div class="card-ey">Personal records</div>
+    <div id="prs-list"><div style="font-size:13px;color:var(--text3)">Log lifts to see your personal records.</div></div>
+  </div>
+  <div class="card">
+    <div class="card-ey">Recent lift history</div>
+    <div id="lift-history"><div style="font-size:13px;color:var(--text3)">No lifts logged yet.</div></div>
+  </div>
+  <div class="card">
+    <div class="card-ey">Exercise demos -- form reference</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:1rem">Your prescribed movements with start and finish positions.</div>
+    <div id="exercise-demos"></div>
+  </div>
+</div>
+
+<!-- HEALTH BIOMARKERS -->
+<div id="page-health" class="page">
+  <div class="hero">
+    <div class="hero-ey">Your metabolic dashboard</div>
+    <div class="hero-title">Health biomarkers</div>
+    <div class="hero-sub">Log lab results and T therapy -- AI Coach uses this data to personalize your plan</div>
+  </div>
+  <div class="card">
+    <div class="card-ey">Log a biomarker result</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:1rem">
+      <div><label class="form-label" style="font-size:12px">Biomarker</label>
+        <select id="bm-type">
+          <option value="">Select...</option>
+          <option value="testosterone_total">Testosterone (total) ng/dL</option>
+          <option value="testosterone_free">Testosterone (free) pg/mL</option>
+          <option value="t_dose">T therapy dose (mg)</option>
+          <option value="t_date">T therapy injection date</option>
+          <option value="bp_systolic">Blood pressure -- systolic</option>
+          <option value="bp_diastolic">Blood pressure -- diastolic</option>
+          <option value="hba1c">HbA1c %</option>
+          <option value="fasting_insulin">Fasting insulin uIU/mL</option>
+          <option value="hdl">HDL mg/dL</option>
+          <option value="ldl_p">LDL-P nmol/L</option>
+          <option value="apob">ApoB mg/dL</option>
+          <option value="hsCRP">hs-CRP mg/L</option>
+          <option value="vitamin_d">Vitamin D ng/mL</option>
+          <option value="triglycerides">Triglycerides mg/dL</option>
+        </select>
+      </div>
+      <div><label class="form-label" style="font-size:12px">Value</label><input type="number" id="bm-value" placeholder="0" step="0.1"></div>
+      <div><label class="form-label" style="font-size:12px">Date of test</label><input type="date" id="bm-test-date"></div>
+      <div><label class="form-label" style="font-size:12px">Notes</label><input type="text" id="bm-notes" placeholder="e.g. fasted 12hrs, day 7 post-injection..."></div>
+    </div>
+    <button class="save-btn" onclick="saveBiomarker()">Save result</button>
+  </div>
+  <div class="card">
+    <div class="card-ey">Current values -- last logged</div>
+    <div id="biomarker-current">
+      <div class="health-row"><div><div class="health-name">Testosterone (total)</div><div class="health-range">Optimal: 700-1100 ng/dL on TRT</div></div><div class="health-val" id="hv-tt">--</div></div>
+      <div class="health-row"><div><div class="health-name">Testosterone (free)</div><div class="health-range">Optimal: 150-200 pg/mL on TRT</div></div><div class="health-val" id="hv-tf">--</div></div>
+      <div class="health-row"><div><div class="health-name">Blood pressure</div><div class="health-range">Target: under 120/80</div></div><div class="health-val" id="hv-bp">--</div></div>
+      <div class="health-row"><div><div class="health-name">HbA1c</div><div class="health-range">Target: under 5.4%</div></div><div class="health-val" id="hv-hba1c">--</div></div>
+      <div class="health-row"><div><div class="health-name">Fasting insulin</div><div class="health-range">Target: under 5 uIU/mL</div></div><div class="health-val" id="hv-ins">--</div></div>
+      <div class="health-row"><div><div class="health-name">HDL</div><div class="health-range">Target: above 60 mg/dL</div></div><div class="health-val" id="hv-hdl">--</div></div>
+      <div class="health-row"><div><div class="health-name">LDL-P or ApoB</div><div class="health-range">LDL-P target: under 1000 nmol/L</div></div><div class="health-val" id="hv-ldl">--</div></div>
+      <div class="health-row"><div><div class="health-name">hs-CRP (inflammation)</div><div class="health-range">Target: under 1.0 mg/L</div></div><div class="health-val" id="hv-crp">--</div></div>
+      <div class="health-row"><div><div class="health-name">Vitamin D</div><div class="health-range">Target: 50-80 ng/mL</div></div><div class="health-val" id="hv-vitd">--</div></div>
+      <div class="health-row"><div><div class="health-name">Triglycerides</div><div class="health-range">Target: under 100 mg/dL</div></div><div class="health-val" id="hv-trig">--</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-ey">T therapy log</div>
+    <div id="t-therapy-log"><div style="font-size:13px;color:var(--text3)">No T therapy entries logged yet.</div></div>
+  </div>
+  <div class="card">
+    <div class="card-ey">Full biomarker history</div>
+    <div id="biomarker-history"><div style="font-size:13px;color:var(--text3)">No results logged yet.</div></div>
+  </div>
 </div>
 
 <!-- AI COACH -->
@@ -945,6 +1118,302 @@ function clearNutrition(){
   pendingNutrition={cal:0,protein:0,carbs:0,fat:0};
 }
 
+
+// ── BODY MEASUREMENTS ──────────────────────────────────────────────────────
+var bodyData = DB.get('bodyData', []);
+var liftData = DB.get('liftData', []);
+var biomarkers = DB.get('biomarkers', []);
+var suppLog = DB.get('suppLog', []);
+var progNotes = DB.get('progNotes', []);
+
+var SUPPS = ['Creatine monohydrate 5g', 'Magnesium glycinate 400mg', 'Vitamin D3 + K2', 'Electrolytes', 'Omega-3 fish oil', 'Whey protein post-workout'];
+
+function saveBodyMeasurement() {
+  var d = {
+    id: Date.now(),
+    date: document.getElementById('bm-date').value || today(),
+    bf: parseFloat(document.getElementById('bm-bf').value) || 0,
+    wt: parseFloat(document.getElementById('bm-wt').value) || 0,
+    waist: parseFloat(document.getElementById('bm-waist').value) || 0,
+    chest: parseFloat(document.getElementById('bm-chest').value) || 0,
+    arms: parseFloat(document.getElementById('bm-arms').value) || 0,
+    thighs: parseFloat(document.getElementById('bm-thighs').value) || 0
+  };
+  if (!d.bf && !d.wt && !d.waist) { toast('Enter at least one measurement'); return; }
+  bodyData.push(d);
+  bodyData.sort(function(a,b){return a.date.localeCompare(b.date);});
+  DB.set('bodyData', bodyData);
+  ['bm-bf','bm-wt','bm-waist','bm-chest','bm-arms','bm-thighs'].forEach(function(id){document.getElementById(id).value='';});
+  toast('Measurements saved');
+  renderBodyPage();
+}
+
+function renderBodyPage() {
+  if (!bodyData.length) return;
+  var last = bodyData[bodyData.length - 1];
+  document.getElementById('bs-bf').textContent = last.bf ? last.bf + '%' : '--';
+  document.getElementById('bs-waist').textContent = last.waist ? last.waist + '"' : '--';
+  document.getElementById('bs-chest').textContent = last.chest ? last.chest + '"' : '--';
+  document.getElementById('bs-arms').textContent = last.arms ? last.arms + '"' : '--';
+  var hist = document.getElementById('body-history');
+  hist.innerHTML = bodyData.slice().reverse().slice(0,8).map(function(d) {
+    var parts = [];
+    if (d.bf) parts.push('BF: ' + d.bf + '%');
+    if (d.wt) parts.push('Wt: ' + d.wt + 'lb');
+    if (d.waist) parts.push('Waist: ' + d.waist + '"');
+    if (d.chest) parts.push('Chest: ' + d.chest + '"');
+    if (d.arms) parts.push('Arms: ' + d.arms + '"');
+    if (d.thighs) parts.push('Thighs: ' + d.thighs + '"');
+    return '<div class="hist-row"><span class="hist-date">' + d.date + '</span><span style="font-size:12px;color:var(--text2)">' + parts.join(' | ') + '</span></div>';
+  }).join('');
+  renderSuppList();
+  renderProgHistory();
+}
+
+function renderSuppList() {
+  var td = today();
+  var todaySupps = suppLog.filter(function(s){return s.date === td;});
+  var taken = todaySupps.length ? todaySupps[todaySupps.length-1].taken : [];
+  document.getElementById('supp-list').innerHTML = SUPPS.map(function(s, i) {
+    var isTaken = taken.indexOf(s) !== -1;
+    return '<div class="supp-row"><div class="supp-name">' + s + '</div><button onclick="toggleSupp(this,' + i + ')" style="padding:6px 14px;border-radius:var(--rsm);border:1px solid ' + (isTaken ? 'var(--green)' : 'var(--border2)') + ';background:' + (isTaken ? 'var(--gbg)' : 'transparent') + ';color:' + (isTaken ? 'var(--green)' : 'var(--text2)') + ';cursor:pointer;font-family:var(--body);font-size:13px" data-taken="' + isTaken + '">' + (isTaken ? 'Taken' : 'Mark taken') + '</button></div>';
+  }).join('');
+}
+
+var tempTaken = [];
+function toggleSupp(btn, idx) {
+  var s = SUPPS[idx];
+  var i = tempTaken.indexOf(s);
+  if (i === -1) {
+    tempTaken.push(s);
+    btn.textContent = 'Taken';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.background = 'var(--gbg)';
+    btn.style.color = 'var(--green)';
+  } else {
+    tempTaken.splice(i, 1);
+    btn.textContent = 'Mark taken';
+    btn.style.borderColor = 'var(--border2)';
+    btn.style.background = 'transparent';
+    btn.style.color = 'var(--text2)';
+  }
+}
+
+function saveSupplements() {
+  suppLog.push({ date: today(), taken: tempTaken.slice(), ts: new Date().toISOString() });
+  DB.set('suppLog', suppLog);
+  tempTaken = [];
+  toast('Supplements logged');
+  renderSuppList();
+}
+
+function saveProgressNote() {
+  var txt = document.getElementById('prog-note').value.trim();
+  if (!txt) { toast('Write something'); return; }
+  progNotes.push({ id: Date.now(), date: today(), text: txt });
+  DB.set('progNotes', progNotes);
+  document.getElementById('prog-note').value = '';
+  toast('Note saved');
+  renderProgHistory();
+}
+
+function renderProgHistory() {
+  var el = document.getElementById('prog-history');
+  if (!el) return;
+  if (!progNotes.length) { el.innerHTML = '<div style="font-size:13px;color:var(--text3)">No notes yet.</div>'; return; }
+  el.innerHTML = progNotes.slice().reverse().slice(0,6).map(function(n) {
+    return '<div class="hist-row"><span class="hist-date">' + n.date + '</span><span style="font-size:13px;color:var(--text2)">' + n.text + '</span></div>';
+  }).join('');
+}
+
+// ── LIFT TRACKING ───────────────────────────────────────────────────────────
+function saveLift() {
+  var name = document.getElementById('lift-name').value;
+  var custom = document.getElementById('lift-custom').value.trim();
+  var finalName = (name === 'Other' || !name) ? custom : name;
+  if (!finalName) { toast('Select or enter an exercise'); return; }
+  var wt = parseFloat(document.getElementById('lift-weight').value) || 0;
+  var sets = parseInt(document.getElementById('lift-sets').value) || 0;
+  var reps = parseInt(document.getElementById('lift-reps').value) || 0;
+  if (!wt && !sets) { toast('Enter weight and sets'); return; }
+  var entry = {
+    id: Date.now(),
+    date: document.getElementById('lift-date').value || today(),
+    name: finalName,
+    weight: wt,
+    sets: sets,
+    reps: reps,
+    notes: document.getElementById('lift-notes').value
+  };
+  liftData.push(entry);
+  liftData.sort(function(a,b){return a.date.localeCompare(b.date);});
+  DB.set('liftData', liftData);
+  ['lift-weight','lift-sets','lift-reps','lift-notes','lift-custom'].forEach(function(id){document.getElementById(id).value='';});
+  document.getElementById('lift-name').value = '';
+  toast('Lift saved');
+  renderLiftsPage();
+}
+
+function renderLiftsPage() {
+  var prs = {};
+  liftData.forEach(function(l) {
+    if (!prs[l.name] || l.weight > prs[l.name].weight) prs[l.name] = l;
+  });
+  var prList = document.getElementById('prs-list');
+  var prKeys = Object.keys(prs);
+  if (!prKeys.length) {
+    prList.innerHTML = '<div style="font-size:13px;color:var(--text3)">Log lifts to see your personal records.</div>';
+  } else {
+    prList.innerHTML = prKeys.map(function(k) {
+      var pr = prs[k];
+      return '<div class="lift-row"><div><div class="lift-name">' + k + '</div><div class="lift-date">' + pr.date + '</div></div><div class="lift-best">' + pr.weight + ' lb x ' + pr.reps + ' reps x ' + pr.sets + ' sets</div></div>';
+    }).join('');
+  }
+  var hist = document.getElementById('lift-history');
+  if (!liftData.length) {
+    hist.innerHTML = '<div style="font-size:13px;color:var(--text3)">No lifts logged yet.</div>';
+  } else {
+    hist.innerHTML = liftData.slice().reverse().slice(0,10).map(function(l) {
+      return '<div class="lift-row"><div><div class="lift-name">' + l.name + '</div><div class="lift-date">' + l.date + (l.notes ? ' -- ' + l.notes : '') + '</div></div><div class="lift-best">' + l.weight + ' lb x ' + l.reps + ' x ' + l.sets + '</div></div>';
+    }).join('');
+  }
+  renderExerciseDemos();
+}
+
+var DEMOS = [
+  { name: 'Bench press', start: 'Lie on bench, bar at chest level, grip shoulder-width. Elbows at 45 degrees. Bar touches lower chest.', finish: 'Press bar straight up. Arms fully extended. Shoulder blades squeezed together throughout.' },
+  { name: 'Deadlift', start: 'Bar over mid-foot. Hip-width stance. Hinge at hips, grip just outside legs. Flat back, chest up, hips higher than knees.', finish: 'Drive hips forward and stand tall. Bar stays close to body. Glutes squeezed at top. Hips and shoulders rise at same rate.' },
+  { name: 'Squat', start: 'Bar on upper traps. Feet shoulder-width, toes slightly out. Brace core. Begin descent by breaking at hips and knees simultaneously.', finish: 'Thighs parallel or below. Knees track over toes. Drive through heels to stand. Keep chest tall throughout movement.' },
+  { name: 'Overhead press', start: 'Bar at shoulder height. Grip just outside shoulders. Elbows slightly forward. Core braced, glutes tight.', finish: 'Press bar straight up. Lock out elbows overhead. Bar finishes directly over mid-foot. Do not hyperextend lower back.' },
+  { name: 'Barbell row', start: 'Hinge to 45 degrees. Bar hanging below chest. Overhand grip shoulder-width. Core braced, flat back.', finish: 'Pull bar to lower chest or upper abdomen. Elbows drive back and up. Squeeze shoulder blades at top. Control the descent.' },
+  { name: 'Romanian deadlift', start: 'Stand tall holding bar. Soft knee bend. Push hips back as bar slides down thighs. Feel hamstring stretch.', finish: 'Drive hips forward to standing. Keep bar close to legs throughout. Do not round lower back. Stop when hips are fully extended.' },
+  { name: 'Pull-ups', start: 'Hang from bar with overhand grip, hands slightly wider than shoulders. Full dead hang. Shoulders packed down.', finish: 'Pull chest toward bar. Elbows drive down and back. Chin clears bar. Lower under control back to full hang.' },
+  { name: 'Farmer carries', start: 'Heavy dumbbells or handles at sides. Tall posture, shoulders back, core braced. Take controlled steps.', finish: 'Walk designated distance. Keep shoulders level. Do not lean or rotate. Strong grip throughout. Set down with control.' }
+];
+
+function renderExerciseDemos() {
+  var el = document.getElementById('exercise-demos');
+  if (!el) return;
+  el.innerHTML = DEMOS.map(function(d) {
+    return '<div style="margin-bottom:1rem;padding-bottom:1rem;border-bottom:1px solid var(--border)"><div style="font-size:14px;font-weight:500;color:var(--text);margin-bottom:6px">' + d.name + '</div><div class="exdemo"><div class="exdemo-img"><div><div style="font-family:var(--mono);font-size:9px;color:var(--teal);margin-bottom:4px">START POSITION</div>' + d.start + '</div></div><div class="exdemo-img"><div><div style="font-family:var(--mono);font-size:9px;color:var(--green);margin-bottom:4px">FINISH POSITION</div>' + d.finish + '</div></div></div></div>';
+  }).join('');
+}
+
+// ── HEALTH BIOMARKERS ────────────────────────────────────────────────────────
+function saveBiomarker() {
+  var type = document.getElementById('bm-type').value;
+  var val = parseFloat(document.getElementById('bm-value').value);
+  var date = document.getElementById('bm-test-date').value || today();
+  if (!type) { toast('Select a biomarker type'); return; }
+  if (!val && val !== 0) { toast('Enter a value'); return; }
+  var entry = { id: Date.now(), type: type, value: val, date: date, notes: document.getElementById('bm-notes').value };
+  biomarkers.push(entry);
+  biomarkers.sort(function(a,b){return a.date.localeCompare(b.date);});
+  DB.set('biomarkers', biomarkers);
+  document.getElementById('bm-type').value = '';
+  document.getElementById('bm-value').value = '';
+  document.getElementById('bm-notes').value = '';
+  toast('Biomarker saved');
+  renderHealthPage();
+}
+
+var BM_MAP = {
+  testosterone_total: 'hv-tt', testosterone_free: 'hv-tf',
+  hba1c: 'hv-hba1c', fasting_insulin: 'hv-ins',
+  hdl: 'hv-hdl', ldl_p: 'hv-ldl', apob: 'hv-ldl',
+  hsCRP: 'hv-crp', vitamin_d: 'hv-vitd', triglycerides: 'hv-trig'
+};
+
+function renderHealthPage() {
+  var latest = {};
+  biomarkers.forEach(function(b) { latest[b.type] = b; });
+  Object.keys(BM_MAP).forEach(function(k) {
+    var el = document.getElementById(BM_MAP[k]);
+    if (el && latest[k]) el.textContent = latest[k].value;
+  });
+  if (latest.bp_systolic && latest.bp_diastolic) {
+    var bpEl = document.getElementById('hv-bp');
+    if (bpEl) bpEl.textContent = latest.bp_systolic.value + '/' + latest.bp_diastolic.value;
+  }
+  var tLog = document.getElementById('t-therapy-log');
+  var tEntries = biomarkers.filter(function(b){return b.type==='t_dose'||b.type==='t_date';}).slice().reverse().slice(0,8);
+  if (tLog) tLog.innerHTML = tEntries.length ? tEntries.map(function(b){
+    return '<div class="health-row"><div class="health-name">' + (b.type==='t_dose'?'T dose: '+b.value+' mg':'Injection date') + '</div><div style="font-size:12px;color:var(--text3)">' + b.date + (b.notes?' -- '+b.notes:'') + '</div></div>';
+  }).join('') : '<div style="font-size:13px;color:var(--text3)">No T therapy entries yet.</div>';
+  var hist = document.getElementById('biomarker-history');
+  var typeNames = {testosterone_total:'Testosterone (total)',testosterone_free:'Testosterone (free)',t_dose:'T dose',bp_systolic:'BP systolic',bp_diastolic:'BP diastolic',hba1c:'HbA1c',fasting_insulin:'Fasting insulin',hdl:'HDL',ldl_p:'LDL-P',apob:'ApoB',hsCRP:'hs-CRP',vitamin_d:'Vitamin D',triglycerides:'Triglycerides'};
+  if (hist) hist.innerHTML = biomarkers.slice().reverse().slice(0,15).map(function(b){
+    return '<div class="health-row"><div><div class="health-name">' + (typeNames[b.type]||b.type) + '</div><div style="font-size:11px;color:var(--text3)">' + b.date + (b.notes?' -- '+b.notes:'') + '</div></div><div style="font-size:15px;font-weight:500;color:var(--text);font-family:var(--mono)">' + b.value + '</div></div>';
+  }).join('') || '<div style="font-size:13px;color:var(--text3)">No results logged yet.</div>';
+}
+
+// ── SMART EATING WINDOW ──────────────────────────────────────────────────────
+function calcEatingWindow() {
+  var mealEntries = S.entries.filter(function(e){return e.type==='meal';});
+  if (!mealEntries.length) return;
+  var lastMeal = mealEntries[mealEntries.length - 1];
+  var lastMealTime = new Date(lastMeal.ts);
+  var fastHours = 20;
+  var windowOpen = new Date(lastMealTime.getTime() + fastHours * 3600000);
+  var now = new Date();
+  var card = document.getElementById('eating-window-card');
+  if (!card) return;
+  card.style.display = 'flex';
+  var timeStr = windowOpen.toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'});
+  var hoursUntil = Math.max(0, Math.round((windowOpen - now) / 3600000 * 10) / 10);
+  document.getElementById('ew-time').textContent = timeStr;
+  document.getElementById('ew-fast-hrs').textContent = hoursUntil > 0 ? hoursUntil + ' hrs away' : 'Window open now';
+  document.getElementById('ew-last').textContent = 'Last meal: ' + fmtDT(lastMeal.ts);
+  var isToday = lastMeal.date === today();
+  document.getElementById('ew-sub').textContent = isToday ? '20-hour fast from last logged meal today' : '20-hour fast from last logged meal (' + lastMeal.date + ')';
+}
+
+// ── TODAY'S PLAN ON DASHBOARD ────────────────────────────────────────────────
+function renderTodayPlan() {
+  var dow = new Date().getDay();
+  var dayIdx = dow === 0 ? 6 : dow - 1;
+  var d = DAYS[dayIdx];
+  var mealEl = document.getElementById('today-meals-content');
+  var workoutEl = document.getElementById('today-workout-content');
+  if (mealEl) {
+    mealEl.innerHTML = d.meals.filter(function(m){return m.p;}).map(function(m){
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-size:13px;font-weight:500;color:var(--text)">' + m.time + ' -- ' + m.name + '</div><div style="font-size:12px;color:var(--text2);margin-top:2px">' + m.detail.slice(0, 100) + '</div></div>';
+    }).join('');
+  }
+  if (workoutEl) {
+    var trainMeal = d.meals.find(function(m){return m.cls==='train';});
+    if (trainMeal) {
+      workoutEl.innerHTML = '<div style="font-size:13px;font-weight:500;color:var(--green);margin-bottom:6px">' + trainMeal.time + '</div><div style="font-size:13px;color:var(--text2);line-height:1.7">' + trainMeal.detail + '</div>';
+    } else {
+      workoutEl.innerHTML = '<div style="font-size:13px;color:var(--text2)">Rest day -- active recovery only.</div>';
+    }
+  }
+}
+
+// ── BUILD DATA SUMMARY (ENHANCED WITH HEALTH DATA) ─────────────────────────
+function buildHealthSummary() {
+  if (!biomarkers.length && !bodyData.length) return '';
+  var lines = ['HEALTH AND BIOMARKER DATA:'];
+  if (bodyData.length) {
+    var last = bodyData[bodyData.length - 1];
+    if (last.bf) lines.push('Body fat: ' + last.bf + '% (logged ' + last.date + ')');
+    if (last.waist) lines.push('Waist: ' + last.waist + ' inches');
+    if (last.arms) lines.push('Arms: ' + last.arms + ' inches');
+  }
+  var latest = {};
+  biomarkers.forEach(function(b){latest[b.type]=b;});
+  var typeNames = {testosterone_total:'Testosterone total',testosterone_free:'Testosterone free',t_dose:'T therapy dose',hba1c:'HbA1c',fasting_insulin:'Fasting insulin',hdl:'HDL',ldl_p:'LDL-P',apob:'ApoB',hsCRP:'hs-CRP',vitamin_d:'Vitamin D',triglycerides:'Triglycerides',bp_systolic:'BP systolic',bp_diastolic:'BP diastolic'};
+  Object.keys(latest).forEach(function(k){
+    if (typeNames[k]) lines.push(typeNames[k] + ': ' + latest[k].value + ' (logged ' + latest[k].date + ')');
+  });
+  if (liftData.length) {
+    var prs = {};
+    liftData.forEach(function(l){if(!prs[l.name]||l.weight>prs[l.name].weight)prs[l.name]=l;});
+    lines.push('Lift PRs: ' + Object.keys(prs).slice(0,5).map(function(k){return k+' '+prs[k].weight+'lb x '+prs[k].reps+'r';}).join(', '));
+  }
+  return lines.join('\n');
+}
+
 function buildDataSummary(){
   var e=S.entries,s=S.settings;
   var wE=e.filter(function(x){return x.type==='weight'&&x.weight;}).slice(-10);
@@ -985,6 +1454,8 @@ function buildDataSummary(){
   if(s.notes){lines.push('User notes: '+s.notes);}
   lines.push('Food preferences: eggs, 80/20 ground beef cooked in tallow, white rice, pasta, aged cheese, whole milk non-homogenized, sushi');
   lines.push('Today: '+today()+', Total entries: '+e.length);
+  var healthSummary = buildHealthSummary();
+  if(healthSummary) lines.push(healthSummary);
   return lines.join('\n');
 }
 
@@ -1106,10 +1577,10 @@ function showPage(id){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.nl').forEach(function(b){b.classList.remove('active');});
   document.getElementById('page-'+id).classList.add('active');
-  var pages=['dashboard','log','journal','week','nutrition','coach','settings'];
+  var pages=['dashboard','log','journal','week','nutrition','body','lifts','health','coach','settings'];
   var idx=pages.indexOf(id);
   if(idx>=0){document.querySelectorAll('.nl')[idx].classList.add('active');}
-  if(id==='dashboard'){refreshDash();}
+  if(id==='dashboard'){refreshDash();calcEatingWindow();renderTodayPlan();}
   if(id==='log'){renderLogRecent();}
   if(id==='journal'){renderJournal(jFilter);}
   if(id==='week'){showWkDay(0,document.querySelector('#week-nav .db'));}
@@ -1119,6 +1590,9 @@ function showPage(id){
     else{document.getElementById('coach-no-key').style.display='none';document.getElementById('coach-main').style.display='block';}
     renderCoachHistory();
   }
+  if(id==='body'){renderBodyPage();renderSuppList();}
+  if(id==='lifts'){renderLiftsPage();}
+  if(id==='health'){renderHealthPage();}
   if(id==='settings'){
     var sk=DB.get('apikey','');
     if(sk){document.getElementById('s-apikey').value=sk;}
@@ -1144,10 +1618,17 @@ function clearData(){
 }
 
 var h=new Date().getHours();
+var todayVal=today();
+['bm-date','lift-date','bm-test-date'].forEach(function(id){var el=document.getElementById(id);if(el)el.value=todayVal;});
 document.getElementById('greeting').textContent=h<12?'Good morning.':h<17?'Good afternoon.':'Good evening.';
 document.getElementById('dash-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
 refreshDash();
 renderLogRecent();
+calcEatingWindow();
+renderTodayPlan();
+renderBodyPage();
+renderLiftsPage();
+renderHealthPage();
 </script>
 </body>
 </html>
