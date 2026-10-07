@@ -182,10 +182,11 @@ function todayFood() {
 }
 
 /* ---------- charts ---------- */
-function lineChart(pts, { h = 150, unit = "", color = "var(--acc)", target = null, invert = false } = {}) {
+function lineChart(pts, { h = 150, unit = "", color = "var(--acc)", target = null, invert = false, band = null } = {}) {
   if (!pts || pts.length < 2) return `<div class="dim" style="padding:12px 0">Log at least two entries to see a chart.</div>`;
   const W = 340, H = h, pl = 34, pr = 10, pt = 10, pb = 22;
   const xs = pts.map(p => +p.x), ys = pts.map(p => p.y).concat(target != null ? [target] : []);
+  if (band) { const span = Math.max(...pts.map(p => p.y)) - Math.min(...pts.map(p => p.y)) || Math.abs(pts[0].y) * 0.1 || 1; [band.lo, band.hi].forEach(b => { if (b != null && Math.abs(b - pts[pts.length - 1].y) < span * 4 + Math.abs(pts[pts.length - 1].y) * 0.25) ys.push(b); }); }
   let x0 = Math.min(...xs), x1 = Math.max(...xs); if (x0 === x1) x1 = x0 + 864e5;
   let y0 = Math.min(...ys), y1 = Math.max(...ys); const pad = (y1 - y0) * 0.15 || 1; y0 -= pad; y1 += pad;
   const X = x => pl + (x - x0) / (x1 - x0) * (W - pl - pr), Y = y => pt + (1 - (y - y0) / (y1 - y0)) * (H - pt - pb);
@@ -196,6 +197,7 @@ function lineChart(pts, { h = 150, unit = "", color = "var(--acc)", target = nul
   return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="trend chart">
   <defs><linearGradient id="${gid}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
   ${ticks.map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="#2a3039" stroke-dasharray="3 4"/><text x="${pl - 6}" y="${Y(t) + 4}" fill="#6f7a88" font-size="10" text-anchor="end">${r1(t)}</text>`).join("")}
+  ${band ? (() => { const top = band.hi != null ? Math.max(pt, Math.min(H - pb, Y(band.hi))) : pt, bot = band.lo != null ? Math.max(pt, Math.min(H - pb, Y(band.lo))) : H - pb; return `<rect x="${pl}" y="${top}" width="${W - pl - pr}" height="${Math.max(0, bot - top)}" fill="var(--good)" opacity=".13"/>${band.hi != null && Y(band.hi) >= pt ? `<line x1="${pl}" x2="${W - pr}" y1="${Y(band.hi)}" y2="${Y(band.hi)}" stroke="var(--good)" stroke-width="1" stroke-dasharray="4 4" opacity=".7"/>` : ""}${band.lo != null && Y(band.lo) <= H - pb ? `<line x1="${pl}" x2="${W - pr}" y1="${Y(band.lo)}" y2="${Y(band.lo)}" stroke="var(--good)" stroke-width="1" stroke-dasharray="4 4" opacity=".7"/>` : ""}`; })() : ""}
   ${target != null ? `<line x1="${pl}" x2="${W - pr}" y1="${Y(target)}" y2="${Y(target)}" stroke="var(--good)" stroke-dasharray="6 4"/><text x="${W - pr}" y="${Y(target) - 4}" fill="var(--good)" font-size="10" text-anchor="end">goal ${r1(target)}${unit}</text>` : ""}
   <path d="${area}" fill="url(#${gid})"/><path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
   ${pts.map(p => `<circle cx="${X(+p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3" fill="${color}"/>`).join("")}
@@ -648,12 +650,16 @@ function progressCharts(rg) {
   add("Training", `Cardio minutes per ${per}`, cs.filter(inR).length, barChart(ks, sumBy(cs, r => r.data.minutes), { color: "var(--info)" }));
   add("Training", `Run and ride miles per ${per}`, cs.filter(inR).filter(r => r.data.miles).length, barChart(ks, sumBy(cs, r => r.data.miles), { color: "var(--info)" }));
   // Body
-  add("Body", "Body weight", line(wt).length, lineChart(line(wt), { target: p.targetWeightLb || null, unit: " lb" }));
+  { const rg = rangeFor("weight"); add("Body", "Body weight", line(wt).length, lineChart(line(wt), { target: p.targetWeightLb || null, unit: " lb", band: rg }) + rangeNote(rg)); }
   const sc = list("scan").slice().reverse();
-  [["body_fat_pct", "Body fat %", "var(--bad)"], ["skeletal_muscle_mass_lb", "Skeletal muscle (lb)", "var(--good)"], ["lean_body_mass_lb", "Lean body mass (lb)", "var(--good)"], ["body_fat_mass_lb", "Body fat mass (lb)", "var(--bad)"], ["visceral_fat_level", "Visceral fat level", "var(--bad)"], ["bmr_kcal", "Resting metabolism (BMR)", "var(--acc)"], ["bwi_score", "eVolt BWI score", "var(--acc)"], ["abdominal_circumference_in", "Abdominal circumference (in)", "var(--bad)"], ["bio_age", "Bio age", "var(--acc)"]].forEach(([k, l, c]) => { const pts = line(sc.filter(r => r.data[k] != null).map(r => ({ x: new Date(r.ts), y: +r.data[k] }))); add("Body", l, pts.length, lineChart(pts, { color: c }), "From scans"); });
+  [["body_fat_pct", "Body fat %", "var(--bad)"], ["skeletal_muscle_mass_lb", "Skeletal muscle (lb)", "var(--good)"], ["lean_body_mass_lb", "Lean body mass (lb)", "var(--good)"], ["body_fat_mass_lb", "Body fat mass (lb)", "var(--bad)"], ["visceral_fat_level", "Visceral fat level", "var(--bad)"], ["bmr_kcal", "Resting metabolism (BMR)", "var(--acc)"], ["bwi_score", "eVolt BWI score", "var(--acc)"], ["abdominal_circumference_in", "Abdominal circumference (in)", "var(--bad)"], ["bio_age", "Bio age", "var(--acc)"]].forEach(([k, l, c]) => { const pts = line(sc.filter(r => r.data[k] != null).map(r => ({ x: new Date(r.ts), y: +r.data[k] }))); const rg = rangeFor(k); add("Body", l, pts.length, lineChart(pts, { color: c, band: rg }) + rangeNote(rg), "From scans"); });
+  [["protein_lb", "Protein mass (lb)"], ["mineral_lb", "Mineral (lb)"], ["total_body_water_lb", "Total body water (lb)"], ["visceral_fat_area_cm2", "Visceral fat area (cm2)"], ["waist_hip_ratio", "Waist to hip ratio"], ["subcutaneous_fat_mass_lb", "Subcutaneous fat (lb)"]].forEach(([k, l]) => { const pts = line(sc.filter(r => r.data[k] != null).map(r => ({ x: new Date(r.ts), y: +r.data[k] }))); const rg = rangeFor(k); add("Body", l, pts.length, lineChart(pts, { band: rg }) + rangeNote(rg), "From scans"); });
+  [["left_arm", "Left arm"], ["right_arm", "Right arm"], ["torso", "Torso"], ["left_leg", "Left leg"], ["right_leg", "Right leg"]].forEach(([k, l]) => { ["lean", "fat"].forEach(t => { const key = `${k}_${t}_lb`; const pts = line(sc.filter(r => r.data[key] != null).map(r => ({ x: new Date(r.ts), y: +r.data[key] }))); const rg = rangeFor(key); add("Body", `${l} ${t} mass (lb)`, pts.length, lineChart(pts, { color: t === "lean" ? "var(--good)" : "var(--bad)", band: rg }) + rangeNote(rg), "From scans"); }); });
   [["arm", "Arms"], ["leg", "Legs"]].forEach(([k, l]) => { const L = sc.filter(r => r.data[`left_${k}_lean_lb`] != null); if (!L.length) { add("Body", `${l}: left vs right lean mass`, 0, ""); return; } const last = L[L.length - 1].data; add("Body", `${l}: left vs right lean mass`, L.filter(inR).length, `<table class="t"><tr><th>Scan</th><th class="n">Left</th><th class="n">Right</th><th class="n">Gap</th></tr>${L.filter(inR).map(r => `<tr><td>${fmtDate(r.ts)}</td><td class="n">${r1(r.data[`left_${k}_lean_lb`])}</td><td class="n">${r1(r.data[`right_${k}_lean_lb`])}</td><td class="n">${r1(Math.abs(r.data[`left_${k}_lean_lb`] - r.data[`right_${k}_lean_lb`]))}</td></tr>`).join("")}</table>`); });
   const tp = list("tape").slice().reverse();
-  D.TAPE.forEach(t => { const pts = line(tp.filter(r => r.data[t.id] != null).map(r => ({ x: new Date(r.ts), y: r.data[t.id] }))); add("Tape", t.n, pts.length, lineChart(pts, { unit: '"' })); });
+  D.TAPE.forEach(t => { const pts = line(tp.filter(r => r.data[t.id] != null).map(r => ({ x: new Date(r.ts), y: r.data[t.id] }))); const rg = t.id === "waist" ? rangeFor("waist") : null; add("Tape", t.n, pts.length, lineChart(pts, { unit: '"', band: rg }) + rangeNote(rg)); });
+  const vt = list("vitals").slice().reverse();
+  [["sys", "Blood pressure: systolic", "var(--bad)"], ["dia", "Blood pressure: diastolic", "var(--bad)"], ["rhr", "Resting heart rate (logged)", "var(--info)"]].forEach(([k, l, c]) => { const pts = line(vt.filter(r => r.data[k]).map(r => ({ x: new Date(r.ts), y: r.data[k] }))); const rg = rangeFor(k); add("Body", l, pts.length, lineChart(pts, { color: c, band: rg }) + rangeNote(rg)); });
   // Shooting
   const ms = list("match").slice().reverse();
   const mp = line(ms.filter(m => m.data.pct).map(m => ({ x: new Date(m.ts), y: +m.data.pct })));
@@ -683,7 +689,7 @@ function progressCharts(rg) {
   [[/step/i, "Steps per day", true], [/resting_heart|restingheart/i, "Resting heart rate", false], [/heart_rate_variability|hrv/i, "Heart rate variability (ms)", false], [/sleep/i, "Sleep (hours)", false], [/active_energy/i, "Active calories per day", true]].forEach(([re, l, sum]) => {
     const rs = hs.filter(r => re.test(r.data.metric) && inR(r));
     if (sum) { const m = {}; rs.forEach(r => { const k = ymd(r.ts); m[k] = (m[k] || 0) + (+r.data.value || 0); }); const kk = buckets(rg.from, "day"); add("Apple Health", l, rs.length, barChart(kk, kk.map(k => m[k] || 0), { color: "var(--info)" })); }
-    else add("Apple Health", l, rs.length, lineChart(rs.map(r => ({ x: new Date(r.ts), y: +r.data.value })).reverse(), { color: "var(--info)" }));
+    else { const rk = /resting/i.test(l) ? "rhr" : /sleep/i.test(l) ? "sleep" : null; const rg = rk ? rangeFor(rk) : null; add("Apple Health", l, rs.length, lineChart(rs.map(r => ({ x: new Date(r.ts), y: +r.data.value })).reverse(), { color: "var(--info)", band: rg }) + rangeNote(rg)); }
   });
   const hw = hs.length ? list("health_workout").filter(inR) : [];
   add("Apple Health", "Watch workouts: average heart rate", hw.length, lineChart(hw.map(w => ({ x: new Date(w.ts), y: +(typeof w.data.avg_hr === "object" ? w.data.avg_hr?.qty : w.data.avg_hr) })).filter(p => p.y).reverse(), { color: "var(--bad)" }));
@@ -711,6 +717,37 @@ function viewProgress() {
    ${unused.length ? `<details class="card"><summary><h3 style="display:inline">${unused.length} more charts waiting for data</h3></summary><div class="list">${unused.map(c => `<div class="li"><div class="grow"><div class="t">${esc(c.title)}</div><div class="dim">${esc(c.group)}</div></div></div>`).join("")}</div></details>` : ""}`);
   bindCommon(); if (!leagueCached()) loadLeague();
 }
+
+/* ---------- personal healthy ranges (age, sex, height aware) ---------- */
+function me() { const p = profile() || {}; const s = latestScan() || {}; return { male: (p.sex || (s.gender || "male")).toString().toLowerCase().startsWith("m"), age: p.age || s.age || 35, hIn: p.heightIn || s.height_in || null }; }
+const MORE_OK = new Set(["lean_body_mass_lb", "skeletal_muscle_mass_lb", "protein_lb", "mineral_lb", "total_body_water_lb", "left_arm_lean_lb", "right_arm_lean_lb", "torso_lean_lb", "left_leg_lean_lb", "right_leg_lean_lb", "bmr_kcal"]);
+function rangeFor(key, scan) {
+  const u = me(); const s = scan || latestScan() || {}; const sr = s.ranges?.[key];
+  const fmt = (lo, hi, unit = "") => lo != null && hi != null ? `${lo} to ${hi}${unit}` : hi != null ? `under ${hi}${unit}` : `${lo}${unit} or more`;
+  if (key === "body_fat_pct") { const t = u.male ? (u.age < 40 ? [8, 20] : u.age < 60 ? [11, 22] : [13, 25]) : (u.age < 40 ? [21, 33] : u.age < 60 ? [23, 35] : [24, 36]);
+    if (sr) return { lo: sr[0], hi: sr[1], label: `Scanner's ideal for you: ${fmt(sr[0], sr[1], "%")}. Medical healthy range for ${u.male ? "men" : "women"} your age: ${t[0]} to ${t[1]}%.` };
+    return { lo: t[0], hi: t[1], label: `Healthy for ${u.male ? "men" : "women"} age ${u.age}: ${t[0]} to ${t[1]}% (Gallagher 2000)` }; }
+  if (key === "weight" || key === "weight_lb") {
+    if (s.lean_body_mass_lb) { const br = s.ranges?.body_fat_pct || (u.male ? (u.age < 40 ? [8, 20] : u.age < 60 ? [11, 22] : [13, 25]) : (u.age < 40 ? [21, 33] : u.age < 60 ? [23, 35] : [24, 36])); const lo = Math.round(s.lean_body_mass_lb / (1 - br[0] / 100)), hi = Math.round(s.lean_body_mass_lb / (1 - br[1] / 100));
+      return { lo, hi, label: `Healthy weight for your current muscle: ${lo} to ${hi} lb (your lean mass at ${br[0]} to ${br[1]}% body fat). Scale weight alone can't tell muscle from fat.` }; }
+    if (u.hIn) { const lo = Math.round(18.5 * u.hIn * u.hIn / 703), hi = Math.round(24.9 * u.hIn * u.hIn / 703); return { lo, hi, label: `BMI healthy weight for ${Math.floor(u.hIn / 12)} ft ${Math.round(u.hIn % 12)} in: ${lo} to ${hi} lb. Add a scan for a muscle-aware range.` }; }
+    return null; }
+  if (key === "visceral_fat_level") return { lo: 1, hi: 9, label: "Healthy: 1 to 9 on the scanner's scale" };
+  if (key === "waist" || key === "abdominal_circumference_in") { const who = u.male ? 37 : 31.5; const half = u.hIn ? Math.round(u.hIn / 2 * 10) / 10 : null; const hi = half ? Math.min(who, half) : who;
+    return { lo: null, hi, label: `Healthy waist: under ${hi} in (${half ? `half your height is ${half} in; ` : ""}WHO risk rises above ${who} in for ${u.male ? "men" : "women"})` }; }
+  if (key === "waist_hip_ratio") { const cut = u.male ? 0.9 : 0.85; return { lo: sr ? sr[0] : null, hi: cut, label: `Healthy: under ${cut} for ${u.male ? "men" : "women"} (WHO)` }; }
+  if (key === "bio_age") return { lo: null, hi: u.age, label: `Goal: at or below your real age (${u.age})` };
+  if (key === "rhr") return { lo: 50, hi: 70, label: "Fit range about 50 to 70 bpm. AHA normal is 60 to 100; lower is usually fitter." };
+  if (key === "sleep") return { lo: 7, hi: 9, label: "Adults: 7 to 9 hours (AASM)" };
+  if (key === "sys") return { lo: 90, hi: 120, label: "Normal systolic: under 120 (AHA)" };
+  if (key === "dia") return { lo: 60, hi: 80, label: "Normal diastolic: under 80 (AHA)" };
+  if (key === "steps") return { lo: u.age >= 60 ? 6000 : 8000, hi: null, label: `Goal: ${u.age >= 60 ? "6,000 to 8,000" : "8,000 to 10,000"}+ a day (Paluch 2022)` };
+  if (key === "asmi") return { lo: u.male ? 7.0 : 5.5, hi: null, label: `Above ${u.male ? 7.0 : 5.5} kg/m² avoids low muscle (EWGSOP2)` };
+  if (sr) return { lo: sr[0], hi: sr[1], label: MORE_OK.has(key) ? `Scanner's normal range for your height: ${fmt(sr[0], sr[1])}. Above it is good for an athlete; it means extra muscle.` : `Scanner's ideal for you: ${fmt(sr[0], sr[1])}` };
+  return null;
+}
+function rangeStatus(key, v, rg) { if (!rg || v == null) return null; if (rg.lo != null && v < rg.lo) return MORE_OK.has(key) ? ["Low", "var(--acc)"] : ["Under", "var(--info)"]; if (rg.hi != null && v > rg.hi) return MORE_OK.has(key) ? ["Above normal", "var(--good)"] : ["High", "var(--bad)"]; return ["In range", "var(--good)"]; }
+const rangeNote = rg => rg ? `<div class="rangeNote"><i></i>${esc(rg.label)}</div>` : "";
 
 /* ---------- HEALTH REPORT ---------- */
 const SRC = {
@@ -1117,7 +1154,7 @@ function viewBody() {
       const s0 = sc[0].data, s1 = sc[1]?.data;
       inner += `<div class="card hero"><div class="spread"><h3>Latest scan</h3><span class="dim">${fmtDate(sc[0].ts)}</span></div><div class="grid2" style="margin-top:8px">${["weight_lb", "body_fat_pct", "skeletal_muscle_mass_lb", "visceral_fat_level"].map(k => scanStat(k, s0, s1)).join("")}</div><a class="btn full" style="margin-top:10px" href="#scan/${sc[0].id}">Full report</a></div>`;
       const series = (k) => sc.slice().reverse().filter(r => r.data[k] != null).map(r => ({ x: new Date(r.ts), y: +r.data[k] }));
-      if (sc.length > 1) inner += `<div class="card"><h3>Body fat %</h3>${lineChart(series("body_fat_pct"), { color: "var(--bad)" })}</div><div class="card"><h3>Skeletal muscle (lb)</h3>${lineChart(series("skeletal_muscle_mass_lb"), { color: "var(--good)" })}</div>`;
+      if (sc.length > 1) inner += `<div class="card"><h3>Body fat %</h3>${lineChart(series("body_fat_pct"), { color: "var(--bad)", band: rangeFor("body_fat_pct") })}${rangeNote(rangeFor("body_fat_pct"))}</div><div class="card"><h3>Skeletal muscle (lb)</h3>${lineChart(series("skeletal_muscle_mass_lb"), { color: "var(--good)", band: rangeFor("skeletal_muscle_mass_lb") })}${rangeNote(rangeFor("skeletal_muscle_mass_lb"))}</div>`;
       inner += `<div class="card"><h3>All scans</h3><div class="list">${sc.map(r => `<div class="li" onclick="location.hash='scan/${r.id}'"><div class="grow"><div class="t">${fmtDate(r.ts)}</div><div class="dim">${r1(r.data.weight_lb)} lb &middot; ${r1(r.data.body_fat_pct)}% fat &middot; ${r1(r.data.skeletal_muscle_mass_lb)} lb muscle</div></div><span class="chev">&rsaquo;</span></div>`).join("")}</div></div>`;
     } else inner += `<div class="empty">No scans yet.</div>`;
   } else if (seg === "tape") {
@@ -1131,7 +1168,7 @@ function viewBody() {
   } else {
     const w = weights(); const p = profile(); const tr = trendPerWeek(w);
     inner += `<button class="btn pri full big" data-act="qweight" style="margin-top:6px">Log weight</button>
-      <div class="card"><div class="spread"><h3>Weight</h3>${tr != null ? `<span class="${tr >= 0 ? "up" : "down"}">${tr >= 0 ? "+" : ""}${r1(tr)} lb/week</span>` : ""}</div>${lineChart(w.slice(-90), { target: p?.targetWeightLb || null, unit: " lb" })}
+      <div class="card"><div class="spread"><h3>Weight</h3>${tr != null ? `<span class="${tr >= 0 ? "up" : "down"}">${tr >= 0 ? "+" : ""}${r1(tr)} lb/week</span>` : ""}</div>${lineChart(w.slice(-90), { target: p?.targetWeightLb || null, unit: " lb", band: rangeFor("weight") })}${rangeNote(rangeFor("weight"))}
       <p class="dim">Weigh in the morning after the bathroom, before food. The weekly trend matters, not any single day.</p></div>
       <div class="card"><div class="list">${list("weight").slice(0, 40).map(r => `<div class="li"><div class="grow"><div class="t">${r1(r.data.lb)} lb</div><div class="dim">${fmtDate(r.ts)} ${esc(r.data.source || "")}</div></div><button class="btn sm danger" data-act="delrec" data-id="${r.id}">Delete</button></div>`).join("")}</div></div>`;
   }
@@ -1139,7 +1176,8 @@ function viewBody() {
 }
 function scanStat(k, s0, s1) {
   const v = s0[k], pv = s1?.[k]; const ch = v != null && pv != null ? v - pv : null; const good = ch == null ? null : (D.LOWER_BETTER.has(k) ? ch < 0 : ch > 0);
-  return `<div class="stat"><div class="k">${esc(D.SCAN_LABELS[k] || k)}</div><div class="v">${v != null ? r1(v) : "--"}</div><div class="s">${ch != null && ch !== 0 ? `<span class="${good ? "up" : "down"}">${ch > 0 ? "+" : ""}${r1(ch)} vs last</span>` : "&nbsp;"}</div></div>`;
+  const rg = rangeFor(k === "weight_lb" ? "weight" : k, s0); const st = rangeStatus(k, v, rg);
+  return `<div class="stat"><div class="k">${esc(D.SCAN_LABELS[k] || k)}</div><div class="v" style="color:${st ? st[1] : "inherit"}">${v != null ? r1(v) : "--"}</div><div class="s">${rg ? `Healthy ${rg.lo != null && rg.hi != null ? rg.lo + " to " + rg.hi : rg.hi != null ? "under " + rg.hi : rg.lo + "+"}<br>` : ""}${ch != null && ch !== 0 ? `<span class="${good ? "up" : "down"}">${ch > 0 ? "+" : ""}${r1(ch)} vs last</span>` : "&nbsp;"}</div></div>`;
 }
 function viewScan(id) {
   if (id === "new") return viewScanNew();
@@ -1150,9 +1188,9 @@ function viewScan(id) {
   const legDiff = d.left_leg_lean_lb && d.right_leg_lean_lb ? Math.abs(d.left_leg_lean_lb - d.right_leg_lean_lb) / Math.max(d.left_leg_lean_lb, d.right_leg_lean_lb) * 100 : null;
   $app.innerHTML = shell("body", `<a class="dim" href="#body/scans">&lsaquo; Scans</a><h1 style="margin:6px 0">Scan ${fmtDate(r.ts)}</h1><div class="dim">${esc(d.source === "evolt360" ? "eVolt 360" : d.brand || "Body scan")}${prev ? " &middot; compared with " + fmtDate(sc[i + 1].ts) : ""}</div>
    <div class="grid2" style="margin-top:12px">${["weight_lb", "body_fat_pct", "skeletal_muscle_mass_lb", "lean_body_mass_lb", "body_fat_mass_lb", "visceral_fat_level", "bmr_kcal", "bwi_score"].map(k => scanStat(k, d, prev)).join("")}</div>
-   <div class="card"><h3>Segmental lean mass (lb)</h3><table class="t"><tr><th></th><th class="n">Lean</th><th class="n">Fat</th></tr>${seg.map(([l, k]) => `<tr><td>${l}</td><td class="n">${r1(d[k + "_lean_lb"])}</td><td class="n">${r1(d[k + "_fat_lb"])}</td></tr>`).join("")}</table>
+   <div class="card"><h3>Segmental lean mass (lb)</h3><table class="t"><tr><th></th><th class="n">Lean</th><th class="n">Healthy</th><th class="n">Fat</th><th class="n">Healthy</th></tr>${seg.map(([l, k]) => { const rl = rangeFor(k + "_lean_lb", d), rf = rangeFor(k + "_fat_lb", d); const sl = rangeStatus(k + "_lean_lb", d[k + "_lean_lb"], rl), sf = rangeStatus(k + "_fat_lb", d[k + "_fat_lb"], rf); return `<tr><td>${l}</td><td class="n" style="color:${sl ? sl[1] : "inherit"}">${r1(d[k + "_lean_lb"])}</td><td class="n dim">${rl ? rl.lo + "-" + rl.hi : ""}</td><td class="n" style="color:${sf ? sf[1] : "inherit"}">${r1(d[k + "_fat_lb"])}</td><td class="n dim">${rf ? rf.lo + "-" + rf.hi : ""}</td></tr>`; }).join("")}</table>
    ${armDiff != null ? `<p class="dim">Arm difference ${r1(armDiff)}%, leg difference ${r1(legDiff)}%. ${(armDiff > 5 || legDiff > 5) ? "Worth adding single-arm and single-leg work on the weaker side." : "Left and right are close."} A small strong-side edge is normal for shooters.</p>` : ""}</div>
-   <div class="card"><h3>Everything on the sheet</h3><table class="t">${Object.entries(D.SCAN_LABELS).filter(([k]) => d[k] != null).map(([k, l]) => `<tr><td>${esc(l)}</td><td class="n">${r1(d[k])}</td><td class="n dim">${prev?.[k] != null ? ((d[k] - prev[k]) > 0 ? "+" : "") + r1(d[k] - prev[k]) : ""}</td></tr>`).join("")}</table>
+   <div class="card"><h3>Everything on the sheet</h3><p class="dim" style="margin-top:0">Ranges are set for your age, sex and height. Green means in range. For muscle, above the range is a good thing.</p><table class="t"><tr><th></th><th class="n">You</th><th class="n">Healthy</th><th class="n">Change</th></tr>${Object.entries(D.SCAN_LABELS).filter(([k]) => d[k] != null).map(([k, l]) => { const rg = rangeFor(k === "weight_lb" ? "weight" : k, d); const st = rangeStatus(k, d[k], rg); return `<tr><td>${esc(l)}</td><td class="n" style="color:${st ? st[1] : "inherit"};font-weight:600">${r1(d[k])}</td><td class="n dim">${rg ? (rg.lo != null && rg.hi != null ? `${rg.lo} to ${rg.hi}` : rg.hi != null ? `under ${rg.hi}` : `${rg.lo}+`) : ""}</td><td class="n dim">${prev?.[k] != null ? ((d[k] - prev[k]) > 0 ? "+" : "") + r1(d[k] - prev[k]) : ""}</td></tr>`; }).join("")}</table>
    ${d.rec_calories_low ? `<p class="dim">The scanner's nutrition suggestion: ${d.rec_calories_low} to ${d.rec_calories_high} kcal, protein ${d.rec_protein_g_low} to ${d.rec_protein_g_high} g. The Fuel tab shows how the app's own targets compare.</p>` : ""}
    ${d.handwritten_notes ? `<p class="dim">Notes: ${esc(d.handwritten_notes)}</p>` : ""}</div>
    ${d.photo ? `<button class="btn full" id="viewphoto">View the original photo</button><div id="ph"></div>` : ""}
@@ -1226,7 +1264,7 @@ function viewTape(id) {
 function viewTapeChart(site) {
   const t = D.TAPE.find(x => x.id === site); if (!t) return go("body/tape");
   const pts = list("tape").slice().reverse().filter(r => r.data[site] != null).map(r => ({ x: new Date(r.ts), y: r.data[site] }));
-  $app.innerHTML = shell("body", `<a class="dim" href="#body/tape">&lsaquo; Tape</a><h1 style="margin:6px 0">${esc(t.n)}</h1><div class="card">${lineChart(pts, { unit: '"' })}<p class="dim">${esc(t.how)}</p></div>`); bindCommon();
+  $app.innerHTML = shell("body", `<a class="dim" href="#body/tape">&lsaquo; Tape</a><h1 style="margin:6px 0">${esc(t.n)}</h1><div class="card">${lineChart(pts, { unit: '"', band: site === "waist" ? rangeFor("waist") : null })}${site === "waist" ? rangeNote(rangeFor("waist")) : ""}<p class="dim">${esc(t.how)}</p></div>`); bindCommon();
 }
 
 /* ---------- FUEL ---------- */
