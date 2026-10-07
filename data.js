@@ -131,10 +131,11 @@ window.FIT_DATA = (() => {
         { ex: "bench", sets: 4 }, { ex: "pullup", sets: 4 },
         { ex: "incline-db", sets: 3, group: "A" }, { ex: "db-row", sets: 3, group: "A" },
         { ex: "face-pull", sets: 2 },
-        { ex: "plate-pinch", sets: 3, group: "B" }, { ex: "gripper", sets: 3, group: "B" } ] },
+        { ex: "plate-pinch", sets: 3, group: "B" }, { ex: "deadbug", sets: 3, group: "B" } ] },
       { name: "Day 3 Power + Change of Direction", focus: "First step, stopping, positions", blocks: [
+        { ex: "position-entry", sets: 3, note: "Skill work while fresh" },
         { ex: "trap-jump", sets: 4 }, { ex: "shuttle-5105", sets: 4, note: "Full rest. Time each rep." },
-        { ex: "lat-shuffle", sets: 3 }, { ex: "position-entry", sets: 3 },
+        { ex: "lat-shuffle", sets: 3 },
         { ex: "trap-dl", sets: 3, note: "Moderate load, fast reps" }, { ex: "lat-lunge", sets: 3 },
         { ex: "mb-rot-throw", sets: 3 } ],
         finisher: { ex: "bike-int", sets: 6, note: "30 s hard, 60 s easy" } },
@@ -161,7 +162,7 @@ window.FIT_DATA = (() => {
 
   const GOALS = {
     lose: { label: "Lose fat", kcalPct: -0.18, repShift: 0, note: "Keep lifting heavy to hold muscle. Fat comes off in the kitchen." },
-    recomp: { label: "Recomp: lose fat, build muscle", kcalPct: -0.08, repShift: 0, note: "Small deficit, high protein, progressive lifting." },
+    recomp: { label: "Recomp: lose fat, build muscle", kcalPct: -0.05, repShift: 0, note: "Small deficit, high protein, progressive lifting." },
     maintain: { label: "Maintain and perform", kcalPct: 0, repShift: 0, note: "Fuel performance. Focus on getting faster and stronger." },
     gain: { label: "Build muscle and size", kcalPct: 0.10, repShift: 2, note: "Small surplus, more volume, eat consistently every day." },
     strength: { label: "Get stronger and faster", kcalPct: 0.03, repShift: -1, note: "Heavier sets in lower rep ranges plus power work." },

@@ -109,7 +109,7 @@ function program(p = profile()) {
   const days = Math.min(5, Math.max(2, p.days || 3));
   const lvl = D.LEVELS[p.level] || D.LEVELS.intermediate;
   const g = D.GOALS[p.goal] || D.GOALS.maintain;
-  const over50 = (p.age || 0) >= 50;
+  const over50 = (p.age || 0) >= 45;
   const swap = id => { let x = lvl.swap[id] || id; if (over50 && D.OVER50_SWAP[x]) x = D.OVER50_SWAP[x]; if (p.swaps && p.swaps[x]) x = p.swaps[x]; return x; };
   return D.T[days].map((day, di) => {
     const blocks = day.blocks.map(b => {
@@ -132,7 +132,7 @@ function nextDayIndex() {
 }
 function restFor(ex, p) {
   const beg = p?.level === "beginner";
-  return ({ power: 90, cod: 75, lower: beg ? 120 : 180, push: beg ? 90 : 150, pull: beg ? 90 : 120, single: 90, grip: 60, core: 45, cond: 60, mob: 0 })[ex.cat] ?? 90;
+  return ({ power: 120, cod: 90, lower: beg ? 120 : 180, push: beg ? 90 : 150, pull: beg ? 90 : 120, single: 90, grip: 60, core: 45, cond: 60, mob: 0 })[ex.cat] ?? 90;
 }
 function suggest(exId, rep) {
   const ex = D.byId[exId]; const h = bestSetHistory(exId)[0];
@@ -140,7 +140,8 @@ function suggest(exId, rep) {
   const top = h.sets.reduce((m, s) => (s.w || 0) > (m.w || 0) ? s : m, h.sets[0]);
   if (ex.unit !== "wr" && ex.unit !== "carry") return { w: top.w, r: top.r, t: top.t, why: "Beat last time" };
   const allTop = h.sets.every(s => (s.r || 0) >= rep[1] && (s.w || 0) >= (top.w || 0));
-  if (allTop && top.w) return { w: top.w + (ex.inc || 5), r: rep[0], why: `Hit ${rep[1]} reps on every set last time. Add ${ex.inc || 5} lb.` };
+  const inc = ((profile()?.age || 0) >= 45 && ex.inc >= 10) ? ex.inc / 2 : (ex.inc || 5);
+  if (allTop && top.w) return { w: top.w + inc, r: rep[0], why: `Hit ${rep[1]} reps on every set last time. Add ${inc} lb.` };
   return { w: top.w, r: Math.min(rep[1], (top.r || rep[0]) + 1), why: "Same weight, add a rep" };
 }
 
@@ -160,14 +161,14 @@ function nutrition(p = profile()) {
   let kcal = tdee * (1 + pct);
   if (p.kcalAdjust) kcal += p.kcalAdjust;
   // protein g/kg by goal (ISSN 1.4 to 2.0, higher in a deficit), on adjusted weight if body fat is high
-  const gkg = { lose: 2.2, recomp: 2.0, maintain: 1.6, gain: 1.8, strength: 1.8 }[p.goal] + ((a >= 50) ? 0.2 : 0);
+  const gkg = { lose: 2.2, recomp: 2.0, maintain: 1.6, gain: (scan?.body_fat_pct != null && scan.body_fat_pct < 15) ? 2.0 : 1.8, strength: 1.8 }[p.goal] + ((a >= 50) ? 0.2 : 0);
   let protW = w; const bf = scan?.body_fat_pct;
   if (bf && ((male && bf > 25) || (!male && bf > 32)) && scan.lean_body_mass_lb) protW = kg(scan.lean_body_mass_lb) / (male ? 0.82 : 0.75);
   const protein = gkg * protW;
   const fatPct = p.build === "carbsensitive" ? 0.32 : p.build === "hardgainer" ? 0.25 : 0.28;
   const fat = Math.max(0.6 * w, kcal * fatPct / 9);
   const carbs = Math.max(0, (kcal - protein * 4 - fat * 9) / 4);
-  const rate = { lose: [-1.0, -0.5], recomp: [-0.5, 0], maintain: [-0.25, 0.25], gain: [0.25, 0.5], strength: [0, 0.25] }[p.goal || "maintain"];
+  const rate = { lose: [-1.0, -0.5], recomp: [-0.4, 0], maintain: [-0.25, 0.25], gain: [0.25, 0.5], strength: [0, 0.25] }[p.goal || "maintain"];
   return { bmr, bmrHow, tdee, act, kcal, protein, fat, carbs, gkg, protW, rateLb: rate.map(x => x / 100 * wlb), wlb, scan };
 }
 function todayFood() {
@@ -357,7 +358,7 @@ function viewTrain() {
   const seg = route()[1] || "plan";
   let inner = `<h1 style="margin:4px 0">Train</h1><div class="seg">${[["plan", "Program"], ["history", "History"], ["library", "Exercises"]].map(([k, l]) => `<button class="${seg === k ? "on" : ""}" onclick="location.hash='train/${k}'">${l}</button>`).join("")}</div>`;
   if (seg === "plan") {
-    inner += `<div class="note">${esc(D.LEVELS[p.level]?.label || "")}, ${p.days} days a week, goal: ${esc(D.GOALS[p.goal]?.label || "")}. Stop each set with about ${prog[0]?.rir ?? 2} good reps left in the tank. ${(p.age || 0) >= 50 ? "Over-50 adjustments are on: joint-friendly swaps and less jump volume." : ""} Run and ride are optional extras, not the core of the plan.</div>`;
+    inner += `<div class="note">${esc(D.LEVELS[p.level]?.label || "")}, ${p.days} days a week, goal: ${esc(D.GOALS[p.goal]?.label || "")}. Stop each set with about ${prog[0]?.rir ?? 2} good reps left in the tank. ${(p.age || 0) >= 45 ? "Over-45 adjustments are on: joint-friendly swaps, smaller weight jumps, less jump volume. Prefer the original lift? Tap the dots on it during a workout and swap it back for good." : ""} Run and ride are optional extras, not the core of the plan.</div>`;
     prog.forEach(day => {
       inner += `<div class="card ${day.idx === nd ? "hero" : ""}"><div class="spread"><div><h2>${esc(day.name)}</h2><div class="dim">${esc(day.focus)}</div></div>${day.idx === nd ? `<span class="chip acc">Up next</span>` : ""}</div>
       <div class="list" style="margin-top:6px">${day.blocks.map(b => { const ex = D.byId[b.ex]; return `<div class="li" onclick="location.hash='ex/${ex.id}'">${b.group ? `<span class="chip" style="color:var(--info)">${b.group}</span>` : ""}<div class="grow"><div class="t">${esc(ex.name)}</div><div class="dim">${b.sets} x ${repLabel(ex, b.rep)}${b.note ? " &middot; " + esc(b.note) : ""}</div></div><span class="chev">&rsaquo;</span></div>`; }).join("")}</div>
@@ -747,7 +748,7 @@ function viewFuel() {
   const p = profile(); if (!p) return go("today");
   const n = nutrition(p);
   if (!n) { $app.innerHTML = shell("fuel", `<h1>Fuel</h1><div class="empty">Log your weight or a scan first, then your targets appear here.</div><button class="btn pri full" data-act="qweight">Log weight</button>`); bindCommon(); return; }
-  const f = todayFood(); const tr = trendPerWeek(weights());
+  const f = todayFood(); const tr = trendPerWeek(weights(), p.goal === "gain" ? 21 : 28);
   const g = D.GOALS[p.goal] || D.GOALS.maintain;
   const meals = Math.max(3, Math.min(5, Math.round(n.protein / 40)));
   let adapt = "";
