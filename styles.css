@@ -108,3 +108,16 @@ table.t td.n{text-align:right;font-variant-numeric:tabular-nums}
 .spin{width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp 0.8s linear infinite;display:inline-block}
 @keyframes sp{to{transform:rotate(360deg)}}
 @media (min-width:900px){ body{padding-bottom:30px} .tabs{top:0;bottom:auto;width:84px;right:auto;height:100vh;border-top:0;border-right:1px solid var(--line)} .tabs .wrap{grid-template-columns:1fr;padding:80px 0 0} main,.top{margin-left:84px} .timer{bottom:20px} .toast{bottom:30px} }
+
+.carousel{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;margin:12px -16px 0;padding:0 16px 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.carousel::-webkit-scrollbar{display:none}
+.wcard{flex:0 0 86%;scroll-snap-align:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column}
+.wcard.hero{background:radial-gradient(120% 140% at 100% 0%,#3a2a0a 0%,var(--card) 55%);border-color:#3b2f17}
+.wcard .btn{margin-top:auto}
+.dots{display:flex;justify-content:center;gap:6px;margin:8px 0 2px}
+.dots i{width:7px;height:7px;border-radius:9px;background:var(--line)}
+.dots i.on{background:var(--acc);width:18px}
+.crew{border-color:#2d4a63;background:radial-gradient(120% 140% at 0% 0%,#10263a 0%,var(--card) 60%)}
+.pts{font-family:var(--disp);font-size:28px;font-weight:800;min-width:44px;text-align:right}
+.meRow .t{color:var(--acc)}
+.top .wrap{gap:8px}

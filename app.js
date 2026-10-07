@@ -3,7 +3,12 @@
 "use strict";
 const D = window.FIT_DATA;
 const API = "https://pgldzfhatnpgucybobva.supabase.co/functions/v1/fit-api";
-const HOST_USER = location.hostname.startsWith("brandon.") ? "brandon" : (location.hostname.endsWith("jonheg.fit") ? "jon" : "");
+const HOST_USER = (() => {
+  const q = new URLSearchParams(location.search).get("u"); if (q) return q.toLowerCase();
+  const h = location.hostname; if (!h.endsWith("jonheg.fit")) return "";
+  const sub = h.slice(0, -"jonheg.fit".length).replace(/\.$/, "");
+  return sub && sub !== "www" ? sub : "jon";
+})();
 const $app = document.getElementById("app");
 
 /* ---------- utils ---------- */
@@ -209,17 +214,18 @@ const I = {
   shoot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>',
   body: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="4.5" r="2.5"/><path d="M5 9h14M12 9v6M8 22l4-7 4 7"/></svg>',
   fuel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c4 4 6 7 6 10a6 6 0 0 1-12 0c0-3 2-6 6-10z"/></svg>',
+  trophy: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>',
   gear: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
 };
 
 /* ---------- routing ---------- */
-const route = () => (location.hash.slice(1) || "today").split("/");
+const route = () => (location.hash.slice(1).split("?")[0] || "today").split("/");
 window.addEventListener("hashchange", () => { window.scrollTo(0, 0); render(); });
 function go(h) { location.hash = h; }
 
 function shell(tab, inner, title) {
   const tabs = [["today", "Today"], ["train", "Train"], ["shoot", "Shoot"], ["body", "Body"], ["fuel", "Fuel"]];
-  return `<header class="top"><div class="wrap"><div class="brand">${esc(title || (S.user.name + "'s"))} <b>Fit</b></div><span class="sync" id="syncst">${esc(syncState)}</span><a class="iconbtn" href="#more" aria-label="Settings">${I.gear}</a></div></header>
+  return `<header class="top"><div class="wrap"><div class="brand">${esc(title || (S.user.name + "'s"))} <b>Fit</b></div><span class="sync" id="syncst">${esc(syncState)}</span><a class="iconbtn" href="#crew" aria-label="Crew competition">${I.trophy}</a><a class="iconbtn" href="#more" aria-label="Settings">${I.gear}</a></div></header>
   <main class="wrap">${inner}</main>
   <nav class="tabs"><div class="wrap">${tabs.map(([k, l]) => `<a href="#${k}" class="${tab === k ? "on" : ""}">${I[k]}<span>${l}</span></a>`).join("")}</div></nav>`;
 }
@@ -246,7 +252,7 @@ function viewLogin() {
     try {
       const j = await api("login", { handle: document.getElementById("lh").value.trim().toLowerCase(), pin: document.getElementById("lp").value, create, name: document.getElementById("ln").value.trim() });
       S = { token: j.token, user: j.user }; localStorage.setItem("fit:session", JSON.stringify(S));
-      loadStore(); await sync(); render();
+      loadStore(); await sync(); if (j.user.must_change_pin) location.hash = "pin"; render();
     } catch (e) { document.getElementById("lerr").textContent = e.message; b.disabled = false; }
   };
   document.getElementById("lgo").onclick = go2;
@@ -305,10 +311,8 @@ function viewToday() {
     <h1 style="margin:4px 0 2px">${hi}, ${esc(p.name || S.user.name)}</h1>
     <div class="dim">${new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</div>
     ${act ? `<div class="card hero"><div class="spread"><div><div class="chip acc">In progress</div><h2 style="margin-top:6px">${esc(act.dayName)}</h2><div class="dim">Started ${new Date(act.start).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</div></div><a class="btn pri" href="#session">Resume</a></div></div>` :
-    `<div class="card hero"><div class="dim" style="text-transform:uppercase;letter-spacing:.08em">Next workout</div>
-      <h2 style="margin:4px 0">${esc(nd?.name || "")}</h2><div class="muted">${esc(nd?.focus || "")}</div>
-      <div class="dim" style="margin:6px 0 12px">${nd ? nd.blocks.length : 0} exercises, about ${nd ? Math.round(nd.blocks.reduce((s, b) => s + b.sets, 0) * 2.6 + 12) : 0} min</div>
-      <button class="btn pri full big" data-act="start" data-day="${nd?.idx ?? 0}">Start workout</button></div>`}
+    workoutCarousel(prog, nd)}
+    <div id="crewcard">${crewCard()}</div>
     <div class="card"><div class="spread"><h3>This week</h3><a class="dim" href="#train">History</a></div>${wk}</div>
     ${n ? `<div class="card"><div class="spread"><h3>Today's fuel</h3><a class="btn sm" href="#fuel">Log food</a></div>
       <div class="grid3" style="margin-top:10px">${ring(f.kcal, n.kcal, "Calories", `of ${r0(n.kcal)}`)}${ring(f.protein, n.protein, "Protein g", `of ${r0(n.protein)}`, "var(--good)")}${ring((n.kcal - f.kcal) > 0 ? n.kcal - f.kcal : 0, n.kcal, "Left", "kcal", "var(--info)")}</div></div>` : ""}
@@ -326,7 +330,7 @@ function viewToday() {
     ${drillPBs.length || lastMatch ? `<div class="card"><h3>Shooting</h3>${lastMatch ? `<div class="li" onclick="location.hash='match/${lastMatch.id}'"><div class="grow"><div class="t">${esc(lastMatch.data.name || "Match")}</div><div class="dim">${fmtDate(lastMatch.ts)} ${esc(lastMatch.data.division || "")}</div></div><div class="badge">${lastMatch.data.pct ? r1(lastMatch.data.pct) + "%" : ""}</div></div>` : ""}
       ${drillPBs.slice(0, 3).map(x => `<div class="li" onclick="location.hash='drill/${x.dr.id}'"><div class="grow"><div class="t">${esc(x.dr.name)}</div><div class="dim">Best ${esc(drillVal(x.dr, x.best))}</div></div>${x.best.rating ? `<span class="badge">${esc(x.best.rating)}</span>` : ""}</div>`).join("")}</div>` : ""}
   `);
-  bindCommon();
+  bindCommon(); bindCarousel(); loadLeague();
 }
 function weekStrip() {
   const now = new Date(); const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
@@ -349,6 +353,134 @@ function healthToday() {
   if (ae && tiles.length < 3) tiles.push({ k: "Active kcal", v: r0(ae) });
   if (!tiles.length) return null;
   return { tiles: tiles.slice(0, 3), when: "Updated " + fmtDate(hs[0].ts) };
+}
+
+function workoutCarousel(prog, nd) {
+  if (!nd) return "";
+  const order = [nd, ...prog.filter(d => d.idx !== nd.idx)];
+  const mins = d => Math.round(d.blocks.reduce((s, b) => s + b.sets, 0) * 2.6 + 12);
+  const done = new Map(); workouts().forEach(w => { if (w.data.programDay != null && !done.has(w.data.programDay)) done.set(w.data.programDay, w.ts); });
+  const cards = order.map((d, i) => `<div class="wcard ${i === 0 ? "hero" : ""}">
+    <div class="dim" style="text-transform:uppercase;letter-spacing:.08em">${i === 0 ? "Today's recommended workout" : "Or choose"}</div>
+    <h2 style="margin:4px 0">${esc(d.name)}</h2><div class="muted">${esc(d.focus)}</div>
+    <div class="dim" style="margin:6px 0 4px">${d.blocks.length} exercises, about ${mins(d)} min</div>
+    <div class="dim" style="margin-bottom:12px">${done.has(d.idx) ? "Last done " + fmtDate(done.get(d.idx)) : "Not done yet"}</div>
+    <button class="btn ${i === 0 ? "pri" : ""} full big" data-act="start" data-day="${d.idx}">Start</button></div>`).join("")
+    + `<div class="wcard"><div class="dim" style="text-transform:uppercase;letter-spacing:.08em">Your own</div><h2 style="margin:4px 0">Custom workout</h2><div class="muted">Start empty and add any exercises.</div><div style="height:58px"></div><button class="btn full big" data-act="startblank">Start empty</button></div>`;
+  return `<div class="carousel" id="wcar">${cards}</div><div class="dots" id="wdots">${order.map((_, i) => `<i class="${i ? "" : "on"}"></i>`).join("")}<i></i></div>`;
+}
+function bindCarousel() {
+  const c = document.getElementById("wcar"); if (!c) return;
+  const dots = [...document.querySelectorAll("#wdots i")];
+  c.addEventListener("scroll", () => { const i = Math.round(c.scrollLeft / (c.firstElementChild.offsetWidth + 12)); dots.forEach((d, k) => d.classList.toggle("on", k === i)); }, { passive: true });
+}
+
+/* ---------- CREW (competition) ---------- */
+let LEAGUE = null; let leagueLoading = false;
+function leagueCached() { if (!LEAGUE && S) { try { LEAGUE = JSON.parse(localStorage.getItem(K("league")) || "null"); } catch (e) {} } return LEAGUE; }
+async function loadLeague(force) {
+  if (!S || leagueLoading) return; leagueLoading = true;
+  try { const j = await api("league", { tzOffsetMin: -new Date().getTimezoneOffset() }); LEAGUE = j; localStorage.setItem(K("league"), JSON.stringify(j)); } catch (e) {}
+  leagueLoading = false;
+  const cc = document.getElementById("crewcard"); if (cc) cc.innerHTML = crewCard();
+  if (route()[0] === "crew" && !isTyping()) viewCrew();
+}
+const medal = i => ["&#129351;", "&#129352;", "&#129353;"][i] || `<span class="dim">${i + 1}</span>`;
+function crewCard() {
+  const L = leagueCached();
+  if (!L) return `<div class="card"><div class="row"><span class="spin"></span><span class="dim">Loading the crew standings</span></div></div>`;
+  if (!L.teams.length) return `<div class="card"><h3>Crew competition</h3><p class="dim">Join a crew with a code to compete on weekly points.</p><a class="btn full" href="#crew">Join a crew</a></div>`;
+  const t = L.teams[0]; const ms = t.members.slice().sort((a, b) => b.week.pts - a.week.pts || b.month - a.month);
+  const me = ms.find(m => m.me); const lead = ms[0]; const gap = me && lead && !lead.me ? lead.week.pts - me.week.pts : 0;
+  const daysLeft = 7 - ((new Date().getDay() + 6) % 7);
+  return `<div class="card crew"><div class="spread"><div><div class="dim" style="text-transform:uppercase;letter-spacing:.08em">${esc(t.name)} &middot; this week</div><h2 style="margin-top:2px">${me && lead?.me && ms.length > 1 && lead.week.pts > ms[1].week.pts ? "You're in the lead" : gap ? `${gap} pts behind ${esc(lead.name)}` : "Weekly showdown"}</h2></div><a class="btn sm" href="#crew">Full board</a></div>
+   <div class="list" style="margin-top:6px">${ms.map((m, i) => `<div class="li ${m.me ? "meRow" : ""}" onclick="location.hash='crew/${m.handle}'"><div style="width:26px;text-align:center;font-size:20px">${medal(i)}</div><div class="grow"><div class="t">${esc(m.name)}${m.me ? " <span class='dim'>(you)</span>" : ""}</div><div class="dim">${m.week.workouts}/${m.planned} workouts${m.streak ? ` &middot; ${m.streak} wk streak` : ""}${m.week.pbs ? ` &middot; ${m.week.pbs} drill PB` : ""}</div></div><div class="pts">${m.week.pts}</div></div>`).join("")}</div>
+   <div class="dim" style="margin-top:6px">${daysLeft} day${daysLeft === 1 ? "" : "s"} left. Points reset Monday.</div></div>`;
+}
+function viewCrew() {
+  const L = leagueCached(); const sub = route()[1];
+  if (!L) { $app.innerHTML = shell("", `<h1>Crew</h1><div class="empty"><span class="spin"></span></div>`); loadLeague(); return; }
+  if (sub && sub !== "board") return viewCrewMember(sub);
+  const t = L.teams[0];
+  const seg = new URLSearchParams(location.hash.split("?")[1] || "").get("v") || "week";
+  let inner = `<h1 style="margin:4px 0">Crew</h1>`;
+  if (t) {
+    const ms = t.members.slice();
+    const sortKey = { week: m => m.week.pts, last: m => m.lastWeek, month: m => m.month, total: m => m.total, strength: m => m.rel || 0 }[seg] || (m => m.week.pts);
+    ms.sort((a, b) => sortKey(b) - sortKey(a));
+    inner += `<div class="dim">${esc(t.name)}</div><div class="seg">${[["week", "This week"], ["last", "Last week"], ["month", "Month"], ["total", "All time"], ["strength", "Strength"]].map(([k, l]) => `<button class="${seg === k ? "on" : ""}" onclick="location.hash='crew/board?v=${k}'">${l}</button>`).join("")}</div>
+    <div class="card"><div class="list">${ms.map((m, i) => `<div class="li ${m.me ? "meRow" : ""}" onclick="location.hash='crew/${m.handle}'"><div style="width:26px;text-align:center;font-size:20px">${medal(i)}</div><div class="grow"><div class="t">${esc(m.name)}</div><div class="dim">${seg === "strength" ? "Best squat + bench + deadlift, times bodyweight" : esc(m.progress.label)}</div></div><div class="pts">${seg === "strength" ? (m.rel ? m.rel.toFixed(2) + "x" : "--") : sortKey(m)}</div></div>`).join("")}</div></div>`;
+    // head to head drills
+    const drillIds = [...new Set(t.members.flatMap(m => Object.keys(m.drillBest || {})))];
+    const h2h = drillIds.map(id => { const dr = D.DRILLS.find(d => d.id === id); if (!dr) return null; const vals = t.members.filter(m => m.drillBest?.[id] != null).map(m => ({ m, v: m.drillBest[id] })); if (vals.length < 2) return null; vals.sort((a, b) => dr.scoring === "points" ? b.v - a.v : a.v - b.v); return { dr, vals }; }).filter(Boolean);
+    inner += `<div class="card"><h3>Head to head: drills</h3>${h2h.length ? h2h.map(x => `<div style="margin-top:10px"><div class="t">${esc(x.dr.name)}</div>${x.vals.map((v, i) => `<div class="spread dim"><span>${medal(i)} ${esc(v.m.name)}</span><span>${x.dr.scoring === "points" ? v.v : v.v.toFixed(2) + " s"}</span></div>`).join("")}</div>`).join("") : `<p class="dim">When two or more of you log the same drill, the matchup shows here.</p>`}</div>`;
+    inner += `<div class="card"><h3>How points work</h3><table class="t">${[["Gym workout", L.points.workout], ["Each lifting PR", L.points.pr], ["Hit your planned gym days for the week", L.points.planBonus], ["Run, ride or cardio", L.points.cardio], ["Drill run logged (max " + L.points.drillMax + " a week)", L.points.drill], ["Drill personal best", L.points.drillPb], ["Match", L.points.match], ["Weigh-in (once a day)", L.points.weighDay], ["Food logged (once a day)", L.points.foodDay], ["Body scan", L.points.scan], ["Tape measurements", L.points.tape]].map(([l, p]) => `<tr><td>${esc(l)}</td><td class="n">${p}</td></tr>`).join("")}</table><p class="dim">Everyone plays against their own plan, so a 3-day lifter and a 5-day lifter both earn the weekly bonus by hitting their own target. Strength ranks by lift total divided by bodyweight, so bigger lifters get no free edge.</p></div>`;
+    inner += `<div class="card"><h3>Invite someone</h3><p class="dim">Share code <b style="color:var(--acc);font-size:18px;letter-spacing:.1em">${esc(t.code)}</b>. They sign up, then join from this page.${S.user.is_admin ? ` Or add them yourself in <a href="#more/admin">Settings, People</a> and they get an email with everything.` : ""}</p></div>`;
+  }
+  inner += `<div class="card"><h3>${t ? "Join another crew" : "Join a crew"}</h3><div class="row"><input class="i grow" id="jc" placeholder="Code" autocapitalize="characters" style="margin:0"><button class="btn pri" id="jbtn">Join</button></div>
+    <div class="row" style="margin-top:10px"><input class="i grow" id="tn" placeholder="Or start a new crew: name" style="margin:0"><button class="btn" id="tbtn">Create</button></div></div>
+    ${L.teams.length > 1 ? `<div class="card"><h3>Your crews</h3>${L.teams.map(x => `<div class="li"><div class="grow t">${esc(x.name)}</div><span class="dim">${esc(x.code)} &middot; ${x.members.length}</span></div>`).join("")}</div>` : ""}`;
+  $app.innerHTML = shell("", inner); bindCommon();
+  document.getElementById("jbtn").onclick = async () => { try { const j = await api("team_join", { code: document.getElementById("jc").value }); toast("Joined " + j.team.name); LEAGUE = null; localStorage.removeItem(K("league")); loadLeague(); } catch (e) { toast(e.message); } };
+  document.getElementById("tbtn").onclick = async () => { try { const j = await api("team_create", { name: document.getElementById("tn").value }); toast(`Crew created. Code ${j.team.code}`, 5000); LEAGUE = null; localStorage.removeItem(K("league")); loadLeague(); } catch (e) { toast(e.message); } };
+}
+function viewCrewMember(handle) {
+  const L = leagueCached(); const m = L?.teams.flatMap(t => t.members).find(x => x.handle === handle);
+  if (!m) return go("crew");
+  const parts = Object.entries(m.week.parts || {}).sort((a, b) => b[1] - a[1]);
+  const pts = (m.weeks || []).map(w => ({ x: new Date(w.week + "T12:00:00"), y: w.pts }));
+  $app.innerHTML = shell("", `<a class="dim" href="#crew">&lsaquo; Crew</a><h1 style="margin:6px 0">${esc(m.name)}</h1>
+   <div class="grid3"><div class="stat"><div class="k">This week</div><div class="v">${m.week.pts}</div></div><div class="stat"><div class="k">Streak</div><div class="v">${m.streak}</div><div class="s">weeks on plan</div></div><div class="stat"><div class="k">All time</div><div class="v">${m.total}</div></div></div>
+   <div class="card"><h3>This week's points</h3>${parts.length ? `<table class="t">${parts.map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${v}</td></tr>`).join("")}</table>` : `<p class="dim">Nothing yet this week.</p>`}</div>
+   <div class="card"><h3>Weekly points</h3>${lineChart(pts)}</div>
+   <div class="card"><h3>Progress</h3><p>${esc(m.progress.label)}</p>${m.progress.pct != null ? `<div class="bar"><i style="width:${m.progress.pct}%"></i></div>` : ""}
+   ${m.rel ? `<p class="dim">Strength: lifts total ${m.rel.toFixed(2)} times bodyweight.</p>` : ""}${m.lastMatch ? `<p class="dim">Last match: ${esc(m.lastMatch.name || "")} ${m.lastMatch.pct ? m.lastMatch.pct + "%" : ""}</p>` : ""}</div>`);
+  bindCommon();
+}
+
+/* ---------- PIN change + admin ---------- */
+function viewPin() {
+  $app.innerHTML = `<div class="wrap login"><div class="mark">Pick your<br><b>PIN</b></div><p class="muted">Choose a 4 to 8 digit PIN you will remember. You will use it to sign in on any device.</p>
+   <div class="card"><label class="f">New PIN</label><input class="i" id="p1" type="password" inputmode="numeric" maxlength="8"><label class="f">Type it again</label><input class="i" id="p2" type="password" inputmode="numeric" maxlength="8"><div style="height:12px"></div><button class="btn pri full big" id="psave">Save PIN</button><div id="perr" class="down" style="margin-top:8px"></div>${S.user.must_change_pin ? "" : `<a class="btn ghost full" href="#more" style="margin-top:8px">Cancel</a>`}</div></div>`;
+  document.getElementById("psave").onclick = async () => {
+    const a1 = document.getElementById("p1").value, a2 = document.getElementById("p2").value;
+    if (!/^\d{4,8}$/.test(a1)) return document.getElementById("perr").textContent = "Use 4 to 8 digits";
+    if (a1 !== a2) return document.getElementById("perr").textContent = "Those don't match";
+    try { await api("set_pin", { pin: a1 }); S.user.must_change_pin = false; localStorage.setItem("fit:session", JSON.stringify(S)); toast("PIN saved"); go("today"); } catch (e) { document.getElementById("perr").textContent = e.message; }
+  };
+}
+async function viewAdmin() {
+  if (!S.user.is_admin) return go("more");
+  $app.innerHTML = shell("", `<a class="dim" href="#more">&lsaquo; Settings</a><h1 style="margin:6px 0">People</h1>
+   <div class="card" id="af"><h3>Add a person</h3><p class="dim">They get their own address (username.jonheg.fit), join your crew, and receive an email with a temporary PIN plus how to use the app.</p>
+    <label class="f">Name</label><input class="i" name="name" placeholder="First and last name">
+    <label class="f">Username (becomes their web address)</label><input class="i" name="handle" autocapitalize="none" placeholder="e.g. mike"><div class="dim" id="hprev"></div>
+    <label class="f">Email</label><input class="i" name="email" type="email" autocapitalize="none" placeholder="name@example.com">
+    <label class="f">Main goal (they can change it)</label><select class="i" name="goal">${Object.entries(D.GOALS).map(([k, g]) => `<option value="${k}" ${k === "maintain" ? "selected" : ""}>${esc(g.label)}</option>`).join("")}</select>
+    <label class="f">Lifting experience</label><select class="i" name="level"><option value="beginner">Under 1 year</option><option value="intermediate" selected>1 to 3 years</option><option value="advanced">3+ years</option></select>
+    <div style="height:12px"></div><button class="btn pri full big" id="aadd">Add and send email</button><div id="ares" style="margin-top:10px"></div></div>
+   <div class="card"><h3>Everyone</h3><div id="alist"><span class="spin"></span></div></div>`);
+  bindCommon();
+  const hf = document.querySelector('#af [name=handle]');
+  const nf = document.querySelector('#af [name=name]');
+  nf.oninput = () => { if (!hf.dataset.touched) { hf.value = nf.value.trim().split(" ")[0].toLowerCase().replace(/[^a-z0-9-]/g, ""); hf.oninput(); } };
+  hf.oninput = e => { if (e) hf.dataset.touched = "1"; document.getElementById("hprev").textContent = hf.value ? `${hf.value}.jonheg.fit` : ""; };
+  const drawList = async () => {
+    try { const j = await api("admin_list"); document.getElementById("alist").innerHTML = j.users.map(u => `<div class="li"><div class="grow"><div class="t">${esc(u.name)} <span class="dim">@${esc(u.handle)}</span></div><div class="dim">${esc(u.handle === "jon" ? "jonheg.fit" : u.url.replace("https://", ""))}${u.email ? " &middot; " + esc(u.email) : ""}${u.pending ? " &middot; <span style='color:var(--acc)'>hasn't signed in</span>" : ""}</div></div>${u.email && u.handle !== S.user.handle ? `<button class="btn sm" data-resend="${esc(u.handle)}">Resend</button>` : ""}</div>`).join("");
+      document.querySelectorAll("[data-resend]").forEach(b => b.onclick = async () => { if (!confirm("Send a new temporary PIN and the welcome email again?")) return; b.disabled = true; try { const r = await api("admin_resend", { handle: b.dataset.resend }); toast(r.email.sent ? `Sent. New temporary PIN ${r.tempPin}` : `Email failed. Temporary PIN ${r.tempPin}`, 7000); } catch (e) { toast(e.message); } b.disabled = false; });
+    } catch (e) { document.getElementById("alist").textContent = e.message; }
+  };
+  drawList();
+  document.getElementById("aadd").onclick = async () => {
+    const f = n => document.querySelector(`#af [name=${n}]`).value.trim();
+    const b = document.getElementById("aadd"); b.disabled = true; const out = document.getElementById("ares"); out.innerHTML = `<div class="row"><span class="spin"></span><span>Setting up their account</span></div>`;
+    try {
+      const r = await api("admin_add", { name: f("name"), handle: f("handle").toLowerCase(), email: f("email"), profile: { goal: f("goal"), level: f("level"), days: 3, activity: "moderate", sex: "male", divisions: [] } });
+      out.innerHTML = `<div class="note"><b>${esc(f("name"))} is in.</b><br>Address: ${esc(r.url.replace("https://", ""))}${r.email.live ? "" : " (goes live once the wildcard DNS record is in; the email points to jonheg.fit until then)"}<br>Temporary PIN: <b>${esc(r.tempPin)}</b><br>Email: ${r.email.sent ? "sent" : "NOT sent" + (r.email.error ? " (" + esc(r.email.error) + ")" : "")}<br>Joined your crew${r.teams.length > 1 ? "s" : ""}.</div>`;
+      document.querySelectorAll("#af input").forEach(i => i.value = ""); delete hf.dataset.touched; LEAGUE = null; localStorage.removeItem(K("league")); drawList();
+    } catch (e) { out.innerHTML = `<div class="down">${esc(e.message)}</div>`; }
+    b.disabled = false;
+  };
 }
 
 /* ---------- TRAIN ---------- */
@@ -801,6 +933,7 @@ function viewFuel() {
 function viewMore() {
   const sub = route()[1];
   if (sub === "profile") { $app.innerHTML = shell("", `<a class="dim" href="#more">&lsaquo; Settings</a>${profileForm(profile() || {})}`); bindProfile($app, () => go("today")); bindCommon(); return; }
+  if (sub === "admin") return viewAdmin();
   if (sub === "research") {
     $app.innerHTML = shell("", `<a class="dim" href="#more">&lsaquo; Settings</a><h1 style="margin:6px 0">Research and sources</h1>
      <div class="card"><h3>What the research says about training for USPSA and 3-Gun</h3><ul class="muted" style="padding-left:18px">
@@ -840,6 +973,9 @@ function viewMore() {
    <div class="card"><div class="list">
     <div class="li" onclick="location.hash='more/profile'"><div class="grow"><div class="t">Profile and goals</div><div class="dim">${esc(p ? `${D.GOALS[p.goal]?.label || ""}, ${p.days} days/week` : "Not set")}</div></div><span class="chev">&rsaquo;</span></div>
     <div class="li" onclick="location.hash='more/health'"><div class="grow"><div class="t">Apple Health and Apple Watch</div><div class="dim">${list("health").length ? list("health").length + " data points synced" : "Not connected yet"}</div></div><span class="chev">&rsaquo;</span></div>
+    ${S.user.is_admin ? `<div class="li" onclick="location.hash='more/admin'"><div class="grow"><div class="t">People</div><div class="dim">Add someone: account, web address, welcome email</div></div><span class="chev">&rsaquo;</span></div>` : ""}
+    <div class="li" onclick="location.hash='crew'"><div class="grow"><div class="t">Crew competition</div><div class="dim">Standings, invite code, join a crew</div></div><span class="chev">&rsaquo;</span></div>
+    <div class="li" onclick="location.hash='pin'"><div class="grow"><div class="t">Change PIN</div></div><span class="chev">&rsaquo;</span></div>
     <div class="li" onclick="location.hash='more/research'"><div class="grow"><div class="t">Research and sources</div><div class="dim">Why the program and targets look the way they do</div></div><span class="chev">&rsaquo;</span></div>
     <div class="li" data-act="install"><div class="grow"><div class="t">Add to Home Screen</div><div class="dim">Runs full screen like an app</div></div></div>
    </div></div>
@@ -870,6 +1006,7 @@ function bindCommon() {
 /* ---------- render ---------- */
 function render() {
   if (!S) return viewLogin();
+  if (S.user.must_change_pin && route()[0] !== "pin") return go("pin");
   const [r, a] = route();
   closeSheet();
   if (r === "today") viewToday();
@@ -887,11 +1024,14 @@ function render() {
   else if (r === "tapechart") viewTapeChart(a);
   else if (r === "fuel") viewFuel();
   else if (r === "more") viewMore();
+  else if (r === "crew") viewCrew();
+  else if (r === "pin") viewPin();
   else go("today");
 }
 
 if (S) { loadStore(); }
 render();
+if (S) { api("me").then(j => { S.user = { ...S.user, ...j.user }; localStorage.setItem("fit:session", JSON.stringify(S)); if (S.user.must_change_pin) go("pin"); }).catch(() => {}); }
 if (S) { sync(); setInterval(() => { if (document.visibilityState === "visible") sync(); }, 60000); document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") sync(); }); window.addEventListener("online", () => sync()); }
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 })();

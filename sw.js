@@ -1,5 +1,5 @@
-const V = "hegfit-v2";
-const SHELL = ["./", "index.html", "styles.css?v=2", "data.js?v=2", "app.js?v=2", "manifest.webmanifest", "icon.svg", "icon-192.png"];
+const V = "hegfit-v3";
+const SHELL = ["./", "index.html", "styles.css?v=3", "data.js?v=3", "app.js?v=3", "manifest.webmanifest", "icon.svg", "icon-192.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {
