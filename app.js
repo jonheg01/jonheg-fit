@@ -321,13 +321,14 @@ function viewToday() {
       <div class="stat"><div class="k">Weight</div><div class="v">${cw ? r1(cw) : "--"}</div><div class="s">${tr != null ? `<span class="${tr >= 0 ? "up" : "down"}">${tr >= 0 ? "+" : ""}${r1(tr)} lb/wk</span>` : "Log weight to see trend"}</div></div>
       <div class="stat"><div class="k">Body fat</div><div class="v">${scan?.body_fat_pct != null ? r1(scan.body_fat_pct) + "%" : "--"}</div><div class="s">${scan ? "Scan " + fmtDate(list("scan")[0].ts) : "No scan yet"}</div></div>
       <div class="stat"><div class="k">Muscle</div><div class="v">${scan?.skeletal_muscle_mass_lb != null ? r1(scan.skeletal_muscle_mass_lb) : "--"}</div><div class="s">Skeletal muscle, lb</div></div>
+      <div class="stat" onclick="location.hash='body/health'" style="cursor:pointer"><div class="k">Health score</div><div class="v">${healthReport().overall ?? "--"}</div><div class="s">Tap for details</div></div>
       <div class="stat"><div class="k">Workouts</div><div class="v">${workouts().filter(x => Date.now() - new Date(x.ts) < 30 * 864e5).length}</div><div class="s">Last 30 days</div></div>
     </div>
     ${hl ? `<div class="card"><div class="spread"><h3>Apple Health</h3><span class="dim">${esc(hl.when)}</span></div><div class="grid3" style="margin-top:8px">${hl.tiles.map(t => `<div class="stat"><div class="k">${esc(t.k)}</div><div class="v" style="font-size:24px">${esc(t.v)}</div></div>`).join("")}</div></div>` : ""}
     <div class="card"><h3>Quick log</h3><div class="grid2" style="margin-top:10px">
       <button class="btn" data-act="qweight">Weight</button><button class="btn" data-act="qcardio">Run or ride</button>
       <a class="btn" href="#shoot/dry">Dry fire</a><a class="btn" href="#shoot">Drill score</a><a class="btn" href="#match/new">Match result</a>
-      <a class="btn" href="#tape/new">Tape measure</a><a class="btn" href="#scan/new">Photo a scan</a></div></div>
+      <button class="btn" data-act="qvitals">Blood pressure</button><a class="btn" href="#tape/new">Tape measure</a><a class="btn" href="#scan/new">Photo a scan</a></div></div>
     ${drillPBs.length || lastMatch ? `<div class="card"><h3>Shooting</h3>${lastMatch ? `<div class="li" onclick="location.hash='match/${lastMatch.id}'"><div class="grow"><div class="t">${esc(lastMatch.data.name || "Match")}</div><div class="dim">${fmtDate(lastMatch.ts)} ${esc(lastMatch.data.division || "")}</div></div><div class="badge">${lastMatch.data.pct ? r1(lastMatch.data.pct) + "%" : ""}</div></div>` : ""}
       ${drillPBs.slice(0, 3).map(x => `<div class="li" onclick="location.hash='drill/${x.dr.id}'"><div class="grow"><div class="t">${esc(x.dr.name)}</div><div class="dim">Best ${esc(drillVal(x.dr, x.best))}</div></div>${x.best.rating ? `<span class="badge">${esc(x.best.rating)}</span>` : ""}</div>`).join("")}</div>` : ""}
   `);
@@ -710,6 +711,127 @@ function viewProgress() {
   bindCommon(); if (!leagueCached()) loadLeague();
 }
 
+/* ---------- HEALTH REPORT ---------- */
+const SRC = {
+  bf: ["Gallagher et al. 2000, healthy body fat ranges by age", "https://pubmed.ncbi.nlm.nih.gov/10966886/"],
+  bf2: ["Range table as published by Spren", "https://help.spren.com/article/581-what-is-a-healthy-body-fat-percentage"],
+  who: ["WHO, Waist circumference and waist-hip ratio (2008)", "https://www.who.int/publications/i/item/9789241501491"],
+  whtr: ["NICE: keep your waist under half your height", "https://www.nice.org.uk/guidance/CG189/chapter/3-Other-information"],
+  ewg: ["EWGSOP2 low muscle cut-offs (Cruz-Jentoft 2019)", "https://bmcgeriatr.biomedcentral.com/articles/10.1186/s12877-020-01860-w/figures/3"],
+  bmi: ["CDC adult BMI categories", "https://www.cdc.gov/bmi/adult-calculator/bmi-categories.html"],
+  bp: ["American Heart Association blood pressure categories", "https://www.heart.org/en/health-topics/high-blood-pressure/understanding-blood-pressure-readings"],
+  hr: ["American Heart Association, resting heart rate", "https://www.heart.org/en/healthy-living/fitness/fitness-basics/target-heart-rates"],
+  sleep: ["AASM and Sleep Research Society: 7+ hours for adults", "https://jcsm.aasm.org/doi/10.5664/jcsm.4758"],
+  steps: ["Paluch et al. 2022, Lancet Public Health: daily steps and mortality", "https://doi.org/10.1016/S2468-2667(21)00302-9"],
+  pag: ["US Physical Activity Guidelines for Americans", "https://health.gov/our-work/nutrition-physical-activity/physical-activity-guidelines"],
+  issn: ["ISSN position stand: protein and exercise", "https://jissn.biomedcentral.com/articles/10.1186/s12970-017-0177-8"],
+  scan: ["Your eVolt 360 report's own range", ""],
+};
+const lerp = (v, a, b, sa, sb) => sa + (Math.max(Math.min(v, Math.max(a, b)), Math.min(a, b)) - a) / (b - a) * (sb - sa);
+const zoneOf = s => s >= 85 ? ["Excellent", "var(--good)"] : s >= 70 ? ["Good", "#9bd84a"] : s >= 50 ? ["Fair", "var(--acc)"] : ["Needs work", "var(--bad)"];
+function avgRecent(kindFilter, days, valFn) {
+  const cut = Date.now() - days * 864e5; const byDay = {};
+  kindFilter().filter(r => +new Date(r.ts) >= cut).forEach(r => { const k = ymd(r.ts); byDay[k] = (byDay[k] || 0) + (valFn(r) || 0); });
+  const v = Object.values(byDay).filter(x => x > 0); return v.length >= 3 ? { avg: v.reduce((a, b) => a + b) / v.length, days: v.length } : null;
+}
+function healthReport() {
+  const p = profile() || {}; const s = latestScan() || {}; const out = [];
+  const male = (p.sex || "male") === "male"; const age = p.age || s.age; const hIn = p.heightIn || s.height_in; const wlb = currentWeight() || s.weight_lb;
+  const add = (o) => out.push(o);
+  // Body fat
+  if (s.body_fat_pct != null && age) {
+    const t = male ? (age < 40 ? [8, 20] : age < 60 ? [11, 22] : [13, 25]) : (age < 40 ? [21, 33] : age < 60 ? [23, 35] : [24, 36]);
+    const v = s.body_fat_pct; const sc = v < t[0] ? lerp(v, t[0] - 5, t[0], 50, 85) : v <= t[1] ? lerp(v, t[1], t[0] + (t[1] - t[0]) * 0.4, 75, 100) : lerp(v, t[1], t[1] + 10, 70, 15);
+    add({ id: "bf", name: "Body fat", value: r1(v) + "%", healthy: `${t[0]} to ${t[1]}% for ${male ? "men" : "women"} ${age < 40 ? "20 to 39" : age < 60 ? "40 to 59" : "60 to 79"}`, score: sc,
+      tip: v > t[1] ? `You're ${r1(v - t[1])} points above the healthy range. Aim to lose fat slowly (about 0.5 to 1% of body weight a week) while lifting heavy so the weight that comes off is fat, not muscle. For shooting, every pound of fat you drop while keeping strength makes you faster between positions.` : v < t[0] ? "Below the healthy range. Eat enough to support training and recovery, especially carbs around workouts." : v > t[0] + (t[1] - t[0]) * 0.6 ? "Healthy, but in the upper part of the range. A small calorie deficit with high protein would move you toward the athletic middle." : "Right where you want it. Keep protein high and keep lifting.", src: SRC.bf });
+  }
+  // Visceral fat
+  if (s.visceral_fat_level != null) { const v = s.visceral_fat_level; add({ id: "vf", name: "Visceral fat level", value: String(v), healthy: "1 to 9 on the scanner's scale", score: v <= 9 ? lerp(v, 9, 1, 85, 100) : lerp(v, 10, 18, 65, 10),
+    tip: v <= 9 ? "Healthy. Visceral fat is the fat around your organs, the kind most tied to heart disease and diabetes." : "Over range. Visceral fat is the fat around your organs and the most harmful kind. It usually drops first when you cut back on alcohol and sugar, sleep 7+ hours, add hard intervals, and run a modest calorie deficit.", src: SRC.scan }); }
+  // Waist to height
+  const tapeW = list("tape").find(r => r.data.waist != null)?.data.waist; const waist = tapeW || s.abdominal_circumference_in;
+  if (waist && hIn) { const v = waist / hIn; add({ id: "whtr", name: "Waist to height", value: v.toFixed(2), healthy: "Under 0.50", score: v < 0.5 ? lerp(v, 0.5, 0.42, 85, 100) : lerp(v, 0.5, 0.65, 70, 15),
+    tip: (v < 0.5 ? "Healthy. Your waist is under half your height, which is the simplest single check for belly fat risk." : v < 0.6 ? "In the increased risk zone (0.50 to 0.59). Losing 1 to 2 inches off the waist gets you under 0.50." : "High risk zone (0.60 or more). Bringing the waist down is the most important health job right now.") + (tapeW ? " Uses your tape waist." : " Uses the scanner's estimated waist; a tape measurement at the belly button is more accurate."), src: SRC.whtr }); }
+  // Waist circumference
+  if (waist) { const [inc, sub] = male ? [37, 40.2] : [31.5, 34.6]; add({ id: "waist", name: "Waist size", value: r1(waist) + " in", healthy: `Under ${inc} in (${male ? "men" : "women"})`, score: waist <= inc ? 100 : waist <= sub ? lerp(waist, inc, sub, 75, 50) : lerp(waist, sub, sub + 6, 45, 10),
+    tip: waist <= inc ? "Healthy." : waist <= sub ? `Above the ${inc} in line where WHO says risk starts to rise.` : `Above the ${sub} in line where WHO says risk is substantially higher.`, src: SRC.who }); }
+  // WHR
+  if (s.waist_hip_ratio != null) { const v = s.waist_hip_ratio; const cut = male ? 0.90 : 0.85; add({ id: "whr", name: "Waist to hip ratio", value: v.toFixed(2), healthy: `Under ${cut.toFixed(2)}`, score: v < cut ? lerp(v, cut, cut - 0.12, 80, 100) : lerp(v, cut, cut + 0.1, 65, 15),
+    tip: v < cut ? "Healthy fat distribution." : "Fat is collecting around the middle. Same fix as waist size: fat loss through diet, intervals and sleep.", src: SRC.who }); }
+  // Appendicular lean mass index
+  if (s.left_arm_lean_lb && s.left_leg_lean_lb && hIn) { const asm = kg(s.left_arm_lean_lb + s.right_arm_lean_lb + s.left_leg_lean_lb + s.right_leg_lean_lb); const m = hIn * 0.0254; const v = asm / (m * m); const cut = male ? 7.0 : 5.5;
+    add({ id: "asmi", name: "Arm and leg muscle index", value: r1(v) + " kg/m²", healthy: `${cut} or more`, score: v < cut ? lerp(v, cut - 1.5, cut, 20, 55) : lerp(v, cut, cut + 2.5, 70, 100),
+      tip: v >= cut + 2 ? "Well above the low-muscle line. Muscle on the arms and legs protects joints, metabolism and long-term health. Keep lifting." : v >= cut ? "Above the low-muscle line, with room to build. Progressive strength training 2 to 4 days a week." : "Below the low-muscle line used to screen for sarcopenia. Prioritize lifting and protein, and talk to a doctor.", src: SRC.ewg }); }
+  // BMI
+  if (wlb && hIn) { const v = wlb / (hIn * hIn) * 703; add({ id: "bmi", name: "BMI", value: r1(v), healthy: "18.5 to 24.9", score: v < 18.5 ? 60 : v < 25 ? 100 : v < 30 ? lerp(v, 25, 30, 75, 50) : lerp(v, 30, 40, 45, 10), noOverall: s.body_fat_pct != null,
+    tip: "BMI only uses height and weight, so it reads muscular people as overweight. Your body fat and waist numbers are better guides." + (s.body_fat_pct != null ? " Not counted in your overall score because you have a scan." : ""), src: SRC.bmi }); }
+  // Bio age
+  if (s.bio_age != null && age) { const d = s.bio_age - age; add({ id: "bio", name: "Scanner bio age", value: `${s.bio_age} (age ${age})`, healthy: "At or below your real age", score: d <= 0 ? lerp(d, 0, -8, 85, 100) : lerp(d, 0, 10, 75, 20),
+    tip: d <= 0 ? "Younger than your actual age by the scanner's estimate." : "Older than your real age by the scanner's estimate. It usually moves with body fat and muscle.", src: SRC.scan }); }
+  // Vitals
+  const vit = list("vitals");
+  const bp = vit.find(r => r.data.sys && r.data.dia);
+  if (bp) { const { sys, dia } = bp.data; const cat = sys >= 180 || dia >= 120 ? ["Crisis level: get medical help", 5] : sys >= 140 || dia >= 90 ? ["Stage 2 high", 25] : sys >= 130 || dia >= 80 ? ["Stage 1 high", 50] : sys >= 120 ? ["Elevated", 72] : ["Normal", 100];
+    add({ id: "bp", name: "Blood pressure", value: `${sys}/${dia}`, healthy: "Under 120/80", score: cat[1], tip: `${cat[0]} (${fmtDate(bp.ts)}). ${cat[1] < 100 ? "Check it again on a few different days. Regular exercise, less sodium and alcohol, and weight loss all lower it. Share high readings with your doctor." : "Keep checking a few times a year."}`, src: SRC.bp }); }
+  const hrs = [...vit.filter(r => r.data.rhr).map(r => ({ ts: r.ts, v: r.data.rhr })), ...list("health").filter(r => /resting_heart|restingheart/i.test(r.data.metric)).map(r => ({ ts: r.ts, v: +r.data.value }))].sort((x, y) => new Date(y.ts) - new Date(x.ts));
+  if (hrs.length) { const v = hrs[0].v; add({ id: "rhr", name: "Resting heart rate", value: r0(v) + " bpm", healthy: "60 to 100 normal, lower is fitter", score: v <= 55 ? 100 : v <= 60 ? 95 : v <= 70 ? lerp(v, 60, 70, 95, 80) : v <= 80 ? lerp(v, 70, 80, 80, 65) : v <= 100 ? lerp(v, 80, 100, 60, 35) : 20,
+    tip: v <= 60 ? "Athletic. Your heart pumps a lot per beat." : "Normal range. Easy zone 2 cardio (bike, incline walk) 2 to 3 times a week brings it down over a few months.", src: SRC.hr }); }
+  // Lifestyle from logs
+  const slp = avgRecent(() => list("health").filter(r => /sleep/i.test(r.data.metric)), 14, r => +r.data.value);
+  if (slp) { const v = slp.avg; add({ id: "sleep", name: "Sleep", value: r1(v) + " h/night", healthy: "7 to 9 hours", score: v >= 7 && v <= 9.5 ? 100 : v < 7 ? lerp(v, 5, 7, 30, 80) : 85, tip: v >= 7 ? "Good. Sleep is when muscle is built and reaction time recovers." : "Short. Under 7 hours slows recovery and fat loss and dulls reaction time. Same bedtime, dark cool room, no screens the last 30 minutes.", src: SRC.sleep }); }
+  const stp = avgRecent(() => list("health").filter(r => /step/i.test(r.data.metric)), 14, r => +r.data.value);
+  if (stp) { const goal = (age || 30) >= 60 ? 7000 : 9000; const v = stp.avg; add({ id: "steps", name: "Daily steps", value: r0(v), healthy: (age || 30) >= 60 ? "6,000 to 8,000+" : "8,000 to 10,000+", score: v >= goal ? 100 : lerp(v, 2000, goal, 20, 95), tip: v >= goal ? "In the range where the mortality benefit levels off." : "Walk more: a 10 minute walk after each meal adds about 3,000 steps.", src: SRC.steps }); }
+  const cut28 = Date.now() - 28 * 864e5;
+  const wk = workouts().filter(w => +new Date(w.ts) >= cut28), cd = list("cardio").filter(c => +new Date(c.ts) >= cut28);
+  const firstAct = Math.min(...[...workouts(), ...list("cardio")].map(r => +new Date(r.ts)), Date.now());
+  const weeks = Math.max(1, Math.min(4, (Date.now() - firstAct) / (7 * 864e5)));
+  const minWk = (wk.reduce((s2, w) => s2 + (w.data.durationS || 0) / 60, 0) + cd.reduce((s2, c) => s2 + (c.data.minutes || 0), 0)) / weeks, strWk = wk.length / weeks;
+  if (workouts().length || list("cardio").length) add({ id: "activity", name: "Weekly exercise", value: `${r0(minWk)} min, ${r1(strWk)} lifts/wk`, healthy: "150+ min and 2+ strength days", score: Math.min(100, minWk / 150 * 60 + Math.min(strWk, 2) / 2 * 40),
+    tip: minWk >= 150 && strWk >= 2 ? "You meet the national guidelines. Most of the extra benefit beyond this is performance." : "Last 4 weeks are under the guideline. Logging every session helps this score.", src: SRC.pag });
+  const prot = avgRecent(() => list("food"), 14, r => r.data.protein);
+  if (prot && wlb) { const gk = prot.avg / kg(wlb); add({ id: "protein", name: "Protein intake", value: `${r0(prot.avg)} g/day (${r1(gk)} g/kg)`, healthy: "1.4 to 2.0 g per kg of body weight", score: gk >= 1.4 ? 100 : lerp(gk, 0.6, 1.4, 25, 85), tip: gk >= 1.4 ? "Enough to build and keep muscle." : `About ${r0(1.6 * kg(wlb) - prot.avg)} g a day short. Add a shake or an extra palm of meat at two meals.`, src: SRC.issn }); }
+  out.forEach(m => { m.score = Math.round(Math.max(0, Math.min(100, m.score))); });
+  const counted = out.filter(m => !m.noOverall);
+  const overall = counted.length ? Math.round(counted.reduce((a2, m) => a2 + m.score, 0) / counted.length) : null;
+  return { metrics: out.sort((x, y) => x.score - y.score), overall, missing: { basics: !(p.age && p.heightIn && p.sex), scan: !latestScan(), bp: !bp, rhr: !hrs.length, sleep: !slp, steps: !stp, food: !prot } };
+}
+function basicsCard() {
+  const p = profile() || {}; const s = latestScan() || {};
+  const h = p.heightIn || s.height_in || ""; const ft = h ? Math.floor(h / 12) : "", inch = h ? Math.round(h % 12) : "";
+  return `<div class="card" id="basics"><div class="spread"><h3>Your basics</h3><span class="dim">Used for every health range</span></div>
+   <div class="pill-sel" data-pill="sex" style="margin-top:8px">${[["male", "Male"], ["female", "Female"]].map(([v, l]) => `<button type="button" data-v="${v}" class="${(p.sex || "male") === v ? "on" : ""}">${l}</button>`).join("")}</div>
+   <div class="grid3"><div><label class="f">Age</label><input class="i" id="bAge" inputmode="numeric" value="${esc(p.age || s.age || "")}"></div><div><label class="f">Height ft</label><input class="i" id="bFt" inputmode="numeric" value="${ft}"></div><div><label class="f">in</label><input class="i" id="bIn" inputmode="numeric" value="${inch}"></div></div>
+   <button class="btn pri full" id="bSave" style="margin-top:10px">Save</button></div>`;
+}
+function bindBasics(after) {
+  const root = document.getElementById("basics"); if (!root) return;
+  root.querySelectorAll("[data-pill] button").forEach(b => b.onclick = () => { root.querySelectorAll("[data-pill] button").forEach(x => x.classList.remove("on")); b.classList.add("on"); });
+  document.getElementById("bSave").onclick = () => {
+    const p = { ...(profile() || {}) }; p.sex = root.querySelector("[data-pill] .on").dataset.v; p.age = num(document.getElementById("bAge").value);
+    const ft = num(document.getElementById("bFt").value) || 0, inch = num(document.getElementById("bIn").value) || 0; if (ft || inch) p.heightIn = ft * 12 + inch;
+    setProfile(p); toast("Saved"); after && after();
+  };
+}
+function viewHealth() {
+  const H = healthReport(); const [zl, zc] = H.overall != null ? zoneOf(H.overall) : ["", "var(--tx3)"];
+  let inner = `<h1 style="margin:4px 0">Body</h1>${bodySeg("health")}
+   <div class="card hero"><div class="row"><div>${ring(H.overall ?? 0, 100, "Health score", H.overall != null ? zl : "Add data", zc)}</div><div class="grow"><h2>${H.overall != null ? zl : "Let's get your numbers"}</h2><p class="dim" style="margin:4px 0 0">Average of ${H.metrics.filter(m => !m.noOverall).length} health markers, each scored 0 to 100 against published healthy ranges for your age and sex. Lowest scores are listed first so you know where to focus.</p></div></div></div>
+   ${basicsCard()}`;
+  inner += H.metrics.map(m => { const [l, c] = zoneOf(m.score); return `<div class="card"><div class="spread"><div><h3>${esc(m.name)}</h3><div class="dim">Healthy: ${esc(m.healthy)}</div></div><div style="text-align:right"><div style="font-family:var(--disp);font-size:26px;font-weight:800">${esc(m.value)}</div><span class="chip" style="color:${c};border-color:${c}">${l} &middot; ${m.score}</span></div></div>
+    <div class="bar" style="margin:10px 0"><i style="width:${m.score}%;background:${c}"></i></div><p class="muted" style="margin:0">${esc(m.tip)}</p>
+    <div class="dim" style="margin-top:6px;font-size:12px">${m.src[1] ? `Source: <a href="${esc(m.src[1])}" target="_blank" rel="noopener">${esc(m.src[0])}</a>` : esc(m.src[0])}</div></div>`; }).join("");
+  const adds = [];
+  if (H.missing.scan) adds.push(`<a class="btn full" href="#scan/new">Add a body scan</a>`);
+  if (H.missing.bp || H.missing.rhr) adds.push(`<button class="btn full" data-act="qvitals">Log blood pressure and resting heart rate</button>`);
+  if (H.missing.sleep || H.missing.steps) adds.push(`<a class="btn full" href="#more/health">Connect Apple Health for sleep and steps</a>`);
+  if (H.missing.food) adds.push(`<a class="btn full" href="#fuel">Log food for a protein score</a>`);
+  adds.push(`<a class="btn full" href="#tape/new">Tape your waist for a more accurate waist score</a>`);
+  inner += `<div class="card"><h3>Add more to sharpen your score</h3><div style="display:grid;gap:8px;margin-top:8px">${adds.join("")}</div></div>
+   <div class="dim" style="text-align:center;margin:10px 0">General health guidance, not a diagnosis. See a doctor about anything that worries you.</div>`;
+  $app.innerHTML = shell("body", inner); bindCommon(); bindBasics(() => viewHealth());
+}
+const bodySeg = cur => `<div class="seg">${[["health", "Health"], ["scans", "Scans"], ["tape", "Tape"], ["weight", "Weight"]].map(([k, l]) => `<button class="${cur === k ? "on" : ""}" onclick="location.hash='body/${k}'">${l}</button>`).join("")}</div>`;
+
 /* ---------- TRAIN ---------- */
 function viewTrain() {
   const p = profile(); if (!p) return go("today");
@@ -984,8 +1106,9 @@ const stageRow = (s, i) => `<div class="stgrow grid3" style="margin-bottom:6px">
 
 /* ---------- BODY ---------- */
 function viewBody() {
-  const seg = route()[1] || "scans";
-  let inner = `<h1 style="margin:4px 0">Body</h1><div class="seg">${[["scans", "Scans"], ["tape", "Tape"], ["weight", "Weight"]].map(([k, l]) => `<button class="${seg === k ? "on" : ""}" onclick="location.hash='body/${k}'">${l}</button>`).join("")}</div>`;
+  const seg = route()[1] || "health";
+  if (seg === "health") return viewHealth();
+  let inner = `<h1 style="margin:4px 0">Body</h1>${bodySeg(seg)}`;
   if (seg === "scans") {
     const sc = list("scan");
     inner += `<a class="btn pri full big" href="#scan/new" style="margin-top:6px">Photograph a scan</a><p class="dim">Snap the eVolt 360 printout. The app reads every number off the sheet, you check them, then save.</p>`;
@@ -1080,6 +1203,7 @@ function scanReview(d, existingId, warn) {
     const ts = o.date ? dayStart(o.date).toISOString() : new Date().toISOString();
     const rec = put("scan", o, existingId || undefined, ts);
     if (o.weight_lb && !existingId) put("weight", { lb: o.weight_lb, source: "scan" }, undefined, ts);
+    if (list("scan")[0]?.id === rec.id) { const pf = { ...(profile() || {}) }; let ch = false; if (o.age) { pf.age = o.age; ch = true; } if (o.height_in) { pf.heightIn = o.height_in; ch = true; } if (/^f/i.test(d.gender || "")) { pf.sex = "female"; ch = true; } else if (/^m/i.test(d.gender || "")) { pf.sex = "male"; ch = true; } if (ch) setProfile(pf); }
     toast("Scan saved"); go("scan/" + rec.id);
   };
 }
@@ -1226,6 +1350,7 @@ function bindCommon() {
     if (a === "delrec") { if (confirm("Delete this entry?")) { del(el.dataset.id); el.dataset.back ? go(el.dataset.back) : render(); } return; }
     if (a === "qweight") return sheet(`<h3>Log weight</h3><input class="i" id="qw" inputmode="decimal" placeholder="lb" value="${esc(r1(currentWeight()) || "")}"><label class="f">Date</label><input class="i" id="qd" type="date" value="${today()}"><div style="height:10px"></div><button class="btn pri full" id="qws">Save</button>`, m => { const i = m.querySelector("#qw"); i.focus(); i.select(); m.querySelector("#qws").onclick = () => { const v = num(i.value); if (!v) return; const d = m.querySelector("#qd").value; put("weight", { lb: v, source: "log" }, `weight:${S.user.id}:${d}`, (d === today() ? new Date() : dayStart(d)).toISOString()); closeSheet(); toast("Weight saved"); render(); }; });
     if (a === "qcardio") return sheet(`<h3>Log cardio</h3><div class="pill-sel" id="ct">${["Run", "Bike ride", "Rower", "Incline walk", "Swim", "Other"].map((t, i) => `<button class="${i ? "" : "on"}">${t}</button>`).join("")}</div><div class="grid2"><div><label class="f">Minutes</label><input class="i" id="cm" inputmode="decimal"></div><div><label class="f">Miles</label><input class="i" id="cd" inputmode="decimal"></div></div><label class="f">Date</label><input class="i" id="cdt" type="date" value="${today()}"><div style="height:10px"></div><button class="btn pri full" id="cs">Save</button>`, m => { m.querySelectorAll("#ct button").forEach(b => b.onclick = () => { m.querySelectorAll("#ct button").forEach(x => x.classList.remove("on")); b.classList.add("on"); }); m.querySelector("#cs").onclick = () => { const d = m.querySelector("#cdt").value; put("cardio", { type: m.querySelector("#ct .on").textContent, minutes: num(m.querySelector("#cm").value), miles: num(m.querySelector("#cd").value) }, undefined, (d === today() ? new Date() : dayStart(d)).toISOString()); closeSheet(); toast("Saved"); render(); }; });
+    if (a === "qvitals") return sheet(`<h3>Log vitals</h3><p class="dim">Sit quietly for 5 minutes first. Any home blood pressure cuff works.</p><div class="grid3"><div><label class="f">Systolic</label><input class="i" id="vs" inputmode="numeric" placeholder="120"></div><div><label class="f">Diastolic</label><input class="i" id="vd" inputmode="numeric" placeholder="80"></div><div><label class="f">Resting HR</label><input class="i" id="vh" inputmode="numeric" placeholder="62"></div></div><div style="height:10px"></div><button class="btn pri full" id="vsave">Save</button>`, m => { m.querySelector("#vsave").onclick = () => { const d = { sys: num(m.querySelector("#vs").value), dia: num(m.querySelector("#vd").value), rhr: num(m.querySelector("#vh").value) }; if (!d.sys && !d.rhr) return toast("Enter a reading"); put("vitals", d); closeSheet(); toast("Saved"); render(); }; });
     if (a === "signout") { if (confirm("Sign out of this device?")) signOut(); return; }
     if (a === "syncnow") { sync().then(() => toast(syncState)); return; }
     if (a === "install") return toast("In Safari tap the Share button, then Add to Home Screen.", 5000);
