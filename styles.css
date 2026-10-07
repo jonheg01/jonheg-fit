@@ -56,7 +56,7 @@ input.i:focus,select.i:focus,textarea.i:focus{border-color:var(--acc)}
 .li:last-child{border-bottom:0}
 .li .t{font-weight:600} .li .chev{color:var(--tx3)}
 .tabs{position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(12,14,17,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:var(--safeB)}
-.tabs .wrap{display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs .wrap{display:grid;grid-template-columns:repeat(6,1fr)}
 .tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 0 8px;color:var(--tx3);text-decoration:none;font-size:11px;font-weight:600}
 .tabs a.on{color:var(--acc)}
 .tabs svg{width:24px;height:24px}
@@ -121,3 +121,13 @@ table.t td.n{text-align:right;font-variant-numeric:tabular-nums}
 .pts{font-family:var(--disp);font-size:28px;font-weight:800;min-width:44px;text-align:right}
 .meRow .t{color:var(--acc)}
 .top .wrap{gap:8px}
+
+.tabs a{font-size:10px}
+.steps{padding-left:20px;margin:6px 0} .steps li{margin:4px 0}
+details summary{cursor:pointer;list-style:none} details summary::-webkit-details-marker{display:none}
+details.howto{margin-top:6px} details.howto summary{color:var(--acc);font-weight:600;font-size:14px}
+details.howto[open]{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px;color:var(--tx)}
+.heat{display:flex;flex-wrap:wrap;gap:3px} .heat i{width:10px;height:10px;border-radius:2px;background:var(--card2)} .heat i.h1{background:#7a5a12} .heat i.h2{background:var(--acc)}
+.partimer{border-color:#1f5c3a}
+
+a.btn{text-decoration:none;color:inherit} a.btn.pri{color:var(--accTx)}
